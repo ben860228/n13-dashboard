@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>N13小水力發電廠專案 戰情儀表板</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+
+    <style>
+        body { font-family: "Microsoft JhengHei", Arial, sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { margin: 0; color: #333; font-size: 24px; }
+        .date-display { font-size: 1.1em; color: #666; }
+        
+        #statusMsg { font-size: 0.9em; margin-left: 10px; font-weight: bold; color: #3498db; }
+
+        .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 20px; }
+        .card { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); text-align: center; }
+        .card h3 { margin: 0 0 10px 0; color: #888; font-size: 1em; }
+        .card .value { font-size: 2.5em; font-weight: bold; color: #2c3e50; }
+        .card .sub { font-size: 0.9em; margin-top: 5px; color: #666; }
+        .status-green { color: #27ae60 !important; }
+        .status-red { color: #c0392b !important; }
+
+        .chart-section { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .chart-container { height: 400px; width: 100%; }
+        .gantt-container { height: 1200px; width: 100%; } 
+
+        #manualSection { display: none; margin-top: 20px; border-top: 1px dashed #ccc; padding-top: 20px; }
+        textarea { width: 100%; height: 100px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
+        .controls { text-align: right; margin-bottom: 10px; }
+        .btn-link { background: none; border: none; color: #999; cursor: pointer; text-decoration: underline; font-size: 0.8em; }
+        button.primary { padding: 10px 20px; cursor: pointer; background: #3498db; color: #fff; border: none; border-radius: 4px; }
+
+        .gantt-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px 20px;
+            font-size: 0.85em;
+            color: #666;
+            padding: 10px 0;
+        }
+        .legend-item {
+            display: inline-flex;
+            align-items: center;
+        }
+        .legend-color {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            margin-right: 6px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <div>
+            <h1>N13小水力發電廠專案 戰情儀表板</h1>
+            <span id="statusMsg">準備連線...</span>
+        </div>
+        <div class="date-display" id="currentDate"></div>
+    </div>
+
+    <div class="cards">
+        <div class="card">
+            <h3>預計累計進度 (Planned)</h3>
+            <div class="value" id="plannedVal">--%</div>
+            <div class="sub" id="plannedSubText">截至今日應完成</div>
+        </div>
+        <div class="card">
+            <h3>實際累計進度 (Actual)</h3>
+            <div class="value" id="actualVal">--%</div>
+            <div class="sub" id="actualSubText">現場回報累計</div>
+        </div>
+        <div class="card">
+            <h3>進度差異 (Variance)</h3>
+            <div class="value" id="varianceVal">--%</div>
+            <div class="sub" id="varianceText">等待數據...</div>
+        </div>
+    </div>
+
+    <div class="chart-section">
+        <h3>N13專案S-Curve</h3>
+        <div class="chart-container">
+            <canvas id="sCurveChart"></canvas>
+        </div>
+    </div>
+
+    <div class="chart-section">
+        <h3>N13專案進度甘特圖</h3>
+        <div class="gantt-legend">
+            <span class="legend-item"><span class="legend-color" style="background-color: rgba(0, 0, 0, 0.15); border: 1px solid #ccc;"></span>預定進度</span>
+            <span class="legend-item"><span class="legend-color" style="background-color: #27ae60;"></span>已完成 (準時/提前)</span>
+            <span class="legend-item"><span class="legend-color" style="background-color: #c0392b;"></span>已完成 (落後)</span>
+            <span class="legend-item"><span class="legend-color" style="background-color: #3498db;"></span>進行中</span>
+            <span class="legend-item"><span class="legend-color" style="background-color: #f39c12;"></span>進行中 (落後)</span>
+        </div>
+        <div class="gantt-container">
+            <canvas id="ganttChart"></canvas>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button class="primary" onclick="loadFromGoogle()">🔄 立即更新雲端資料</button>
+        <br><br>
+        <button class="btn-link" onclick="toggleManual()">連不上？切換手動輸入模式</button>
+    </div>
+
+    <div id="manualSection">
+        <p>如果雲端連線失敗，請手動貼上 CSV：</p>
+        <textarea id="csvInput" placeholder="請將 CSV 內容貼在這裡..."></textarea>
+        <button class="primary" onclick="processData(document.getElementById('csvInput').value)">解析手動資料</button>
+    </div>
+</div>
+
+<script>
+    const GOOGLE_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQiyY2STxHEAcJIa_wBeLHRYpGj82dozn-1tCo_ZhltPo-CABMaWOD88K7LLJnXTtW_3IV-k2qZq8HV/pub?output=csv";
+    
+    let ganttChartInstance = null;
+    let sCurveInstance = null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    document.getElementById('currentDate').textContent = "今日: " + today.toLocaleDateString();
+
+    window.onload = function() {
+        if(GOOGLE_CSV_URL && GOOGLE_CSV_URL.includes("http")) {
+            loadFromGoogle();
+        } else {
+            document.getElementById('statusMsg').textContent = "⚠️ 請先設定 Google CSV 連結";
+            document.getElementById('statusMsg').style.color = "red";
+        }
+    };
+
+    function toggleManual() {
+        const el = document.getElementById('manualSection');
+        el.style.display = el.style.display === 'block' ? 'none' : 'block';
+    }
+
+    function loadFromGoogle() {
+        const msg = document.getElementById('statusMsg');
+        msg.textContent = "⏳ 正在從 Google Drive 下載資料...";
+        msg.style.color = "#3498db";
+        const cacheBuster = GOOGLE_CSV_URL + "&t=" + new Date().getTime();
+
+        Papa.parse(cacheBuster, {
+            download: true,
+            header: true,
+            skipEmptyLines: true,
+            complete: function(results) {
+                msg.textContent = "✅ 資料更新成功 (" + new Date().toLocaleTimeString() + ")";
+                msg.style.color = "#27ae60";
+                processData(results.data);
+            },
+            error: function(err) {
+                msg.textContent = "❌ 連線失敗，請檢查權限或切換手動模式。";
+                msg.style.color = "red";
+                console.error("PapaParse 錯誤:", err);
+                toggleManual();
+            }
+        });
+    }
+
+    function parsePercent(str) {
+        if (!str && str !== 0) return 0;
+        if (typeof str === 'number') return str;
+        return parseFloat(str.toString().replace('%', '')) || 0;
+    }
+
+    function parseDate(dateString) {
+        if (!dateString) return null;
+        const parts = dateString.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+        if (parts) {
+            return new Date(Date.UTC(parts[1], parts[2] - 1, parts[3]));
+        }
+        const d = new Date(dateString);
+        if (isNaN(d.getTime())) {
+            console.warn(`無效的日期格式，無法解析: \"${dateString}\"`);
+            return null;
+        }
+        return d;
+    }
+
+    function processData(data) {
+        if (typeof data === 'string') {
+            const parseResult = Papa.parse(data, { header: true, skipEmptyLines: true });
+            data = parseResult.data;
+        }
+
+        if (!data || data.length === 0) {
+            console.error("無法處理資料：資料為空或格式錯誤。");
+            return;
+        }
+
+        const comparisonDate = new Date(today);
+        const dayOfWeek = today.getDay(); 
+        const daysToSubtract = (dayOfWeek + 2) % 7; 
+        comparisonDate.setDate(today.getDate() - daysToSubtract);
+        document.getElementById('plannedSubText').textContent = "截至 " + comparisonDate.toLocaleDateString() + " 應完成";
+
+        let minDateOverall = new Date("2099-12-31");
+        const dateColumnRegex = /^(\d{4}[\/\-](0?[1-9]|1[0-2])[\/\-](0?[1-9]|[12][0-9]|3[01]))$/;
+        const allKeys = data.length > 0 ? Object.keys(data[0]) : [];
+        const historicalDateKeys = allKeys
+            .filter(key => dateColumnRegex.test(key))
+            .sort((a, b) => parseDate(a) - parseDate(b));
+
+        let latestActualDataDateKey = null;
+        for (let i = historicalDateKeys.length - 1; i >= 0; i--) {
+            const dateKey = historicalDateKeys[i];
+            const totalProgressForDay = data.reduce((sum, row) => sum + parsePercent(row[dateKey]), 0);
+            if (totalProgressForDay > 0) {
+                latestActualDataDateKey = dateKey;
+                break;
+            }
+        }
+
+        if (latestActualDataDateKey) {
+            const latestDate = parseDate(latestActualDataDateKey);
+            if (latestDate) {
+                document.getElementById('actualSubText').textContent = "截至 " + latestDate.toLocaleDateString() + " 回報";
+            }
+        } else {
+            document.getElementById('actualSubText').textContent = "尚無實際進度回報";
+        }
+        
+        const ganttLabels = data.map(row => row['任務名稱']).filter(name => name);
+        const ganttPlannedData = [];
+        const ganttActualData = [];
+        let totalPlannedToday = 0;
+        let totalActualToday = 0;
+
+        data.forEach(row => {
+            const taskName = row['任務名稱'];
+            if (!taskName) return;
+
+            const weight = parsePercent(row['全案權重 (%)']);
+            const planStart = parseDate(row['開始時間']);
+            const planEnd = parseDate(row['結束日期']);
+            
+            let plannedContribToday = 0;
+
+            if (planStart && planEnd) {
+                if (planStart < minDateOverall) minDateOverall = planStart;
+
+                if (comparisonDate >= planEnd) {
+                    plannedContribToday = weight;
+                } else if (comparisonDate > planStart) {
+                    const totalDays = (planEnd - planStart) / 86400000;
+                    const passedDays = (comparisonDate - planStart) / 86400000;
+                    if (totalDays > 0) plannedContribToday = weight * Math.max(0, passedDays / totalDays);
+                }
+                ganttPlannedData.push([planStart.valueOf(), planEnd.valueOf()]);
+            } else {
+                ganttPlannedData.push(null);
+            }
+            totalPlannedToday += plannedContribToday;
+            
+            totalActualToday += parsePercent(row['貢獻度 (%)']);
+
+            const actStart = parseDate(row['實際開始時間']);
+            const actEnd = parseDate(row['實際完成時間']);
+            
+            let barColor;
+            let actDataPoint = null;
+
+            if (actStart) {
+                let drawEnd = actEnd ? actEnd : today;
+                actDataPoint = [actStart.valueOf(), drawEnd.valueOf()];
+                
+                if (actEnd) {
+                    barColor = (planEnd && actEnd > planEnd) ? '#c0392b' : '#27ae60';
+                } else {
+                    barColor = (planEnd && today > planEnd) ? '#f39c12' : '#3498db';
+                }
+            }
+            
+            ganttActualData.push({ data: actDataPoint, color: barColor });
+        });
+
+        const finalActualData = ganttActualData.map(d => d.data);
+        const finalActualColors = ganttActualData.map(d => d.color || 'transparent');
+
+        const sLabels = [];
+        const sPlanned = [];
+        const sActual = [];
+
+        if (historicalDateKeys.length > 0) {
+            const firstDate = parseDate(historicalDateKeys[0]);
+            if (minDateOverall > firstDate) minDateOverall = firstDate;
+            sLabels.push(minDateOverall.valueOf() - 86400000 * 7);
+            sPlanned.push(0);
+            sActual.push(0);
+
+            historicalDateKeys.forEach(dateKey => {
+                const currentDate = parseDate(dateKey);
+                if (!currentDate) return;
+                sLabels.push(currentDate.valueOf());
+
+                let cumulativePlanned = 0;
+                let cumulativeActual = 0;
+
+                data.forEach(row => {
+                    if (!row['任務名稱']) return;
+                    const weight = parsePercent(row['全案權重 (%)']);
+                    const planStart = parseDate(row['開始時間']);
+                    const planEnd = parseDate(row['結束日期']);
+                    if (!planStart || !planEnd) return;
+                    
+                    let plannedContrib = 0;
+                    if (currentDate >= planEnd) {
+                        plannedContrib = weight;
+                    } else if (currentDate > planStart) {
+                        const totalDays = (planEnd - planStart) / 86400000;
+                        const passedDays = (currentDate - planStart) / 86400000;
+                        if (totalDays > 0) plannedContrib = weight * Math.max(0, passedDays / totalDays);
+                    }
+                    cumulativePlanned += plannedContrib;
+
+                    const actualProgressOnDate = parsePercent(row[dateKey]);
+                    cumulativeActual += (actualProgressOnDate / 100) * weight;
+                });
+                
+                sPlanned.push(cumulativePlanned.toFixed(2));
+                sActual.push(cumulativeActual.toFixed(2));
+            });
+        }
+        
+        document.getElementById('plannedVal').textContent = totalPlannedToday.toFixed(2) + '%';
+        document.getElementById('actualVal').textContent = totalActualToday.toFixed(2) + '%';
+        const variance = totalActualToday - totalPlannedToday;
+        const varEl = document.getElementById('varianceVal');
+        varEl.textContent = (variance >= 0 ? "+" : "") + variance.toFixed(2) + '%';
+        const textEl = document.getElementById('varianceText');
+        varEl.className = "value";
+        if (variance < -5) { varEl.classList.add("status-red"); textEl.textContent = "⚠ 進度嚴重落後"; } 
+        else if (variance >= 0) { varEl.classList.add("status-green"); textEl.textContent = "✨ 進度超前"; }
+        else { textEl.textContent = "在可控範圍內"; }
+
+        renderGantt(ganttLabels, ganttPlannedData, finalActualData, finalActualColors);
+        if(sLabels.length > 0) {
+            renderSCurve(sLabels, sPlanned, sActual);
+        } else {
+             console.warn("沒有偵測到任何歷史進度日期欄位，無法繪製 S-Curve。");
+        }
+    }
+
+    function renderGantt(labels, plannedData, actualData, actualColors) {
+        const ctx = document.getElementById('ganttChart').getContext('2d');
+        if (ganttChartInstance) {
+            ganttChartInstance.destroy();
+        }
+
+        ganttChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: '預定進度',
+                        data: plannedData,
+                        backgroundColor: 'rgba(0, 0, 0, 0.15)',
+                        barPercentage: 0.6,
+                        categoryPercentage: 0.7,
+                    },
+                    {
+                        label: '實際進度',
+                        data: actualData,
+                        backgroundColor: actualColors,
+                        barPercentage: 0.2,
+                        categoryPercentage: 0.7
+                    }
+                ]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: { unit: 'month' },
+                        min: '2025-10-27',
+                        position: 'top'
+                    },
+                    y: { 
+                        stacked: false 
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const raw = context.raw;
+                                if (!raw || (Array.isArray(raw) && raw.length === 0)) return "無資料";
+                                const s = new Date(raw[0]).toLocaleDateString();
+                                const e = new Date(raw[1]).toLocaleDateString();
+                                return `${context.dataset.label}: ${s} ~ ${e}`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function renderSCurve(labels, plannedData, actualData) {
+        const ctx = document.getElementById('sCurveChart').getContext('2d');
+        if (sCurveInstance) {
+            sCurveInstance.destroy();
+        }
+        sCurveInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    { 
+                        label: '預定進度', 
+                        data: plannedData, 
+                        borderColor: '#95a5a6', 
+                        borderWidth: 2, 
+                        pointRadius: 0, 
+                        fill: false, 
+                        tension: 0.4 
+                    },
+                    { 
+                        label: '實際進度', 
+                        data: actualData, 
+                        borderColor: '#3498db', 
+                        borderWidth: 3, 
+                        pointRadius: 2, 
+                        fill: 'start', 
+                        backgroundColor: 'rgba(52, 152, 219, 0.1)' 
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { 
+                    x: { type: 'time', time: { unit: 'month' } }, 
+                    y: { min: 0, max: 100, title: { display: true, text: '累積進度 (%)' } }
+                },
+                plugins: {
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            title: function(context) {
+                                return new Date(context[0].parsed.x).toLocaleDateString();
+                            }
+                        }
+                    },
+                    legend: { position: 'bottom' },
+                    annotation: {
+                        annotations: {
+                            todayLine: {
+                                type: 'line',
+                                scaleID: 'x',
+                                value: today.valueOf(),
+                                borderColor: 'red',
+                                borderWidth: 1,
+                                label: {
+                                    content: ['今日', today.toLocaleDateString()],
+                                    enabled: true,
+                                    position: 'start',
+                                    backgroundColor: 'rgba(255, 0, 0, 0.8)',
+                                    font: {
+                                        size: 10
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+</script>
+</body>
+</html>
