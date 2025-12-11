@@ -214,19 +214,25 @@
             .sort((a, b) => parseDate(a) - parseDate(b));
 
         let latestActualDataDateKey = null;
+        let cumulativeActualForLatestDate = 0;
         for (let i = historicalDateKeys.length - 1; i >= 0; i--) {
             const dateKey = historicalDateKeys[i];
-            const totalProgressForDay = data.reduce((sum, row) => sum + parsePercent(row[dateKey]), 0);
-            if (totalProgressForDay > 0) {
-                latestActualDataDateKey = dateKey;
-                break;
+            let dailyTotal = 0;
+            data.forEach(row => {
+                dailyTotal += parsePercent(row[dateKey]);
+            });
+
+            if (dailyTotal > 0) {
+                if(!latestActualDataDateKey) {
+                    latestActualDataDateKey = dateKey;
+                }
             }
         }
 
         if (latestActualDataDateKey) {
             const latestDate = parseDate(latestActualDataDateKey);
             if (latestDate) {
-                document.getElementById('actualSubText').textContent = "截至 " + latestDate.toLocaleDateString() + " 回報";
+                 document.getElementById('actualSubText').textContent = "截至 " + latestDate.toLocaleDateString() + " 回報";
             }
         } else {
             document.getElementById('actualSubText').textContent = "尚無實際進度回報";
@@ -264,7 +270,9 @@
             }
             totalPlannedToday += plannedContribToday;
             
-            totalActualToday += parsePercent(row['貢獻度 (%)']);
+            if(latestActualDataDateKey) {
+                 totalActualToday += parsePercent(row[latestActualDataDateKey]);
+            }
 
             const actStart = parseDate(row['實際開始時間']);
             const actEnd = parseDate(row['實際完成時間']);
@@ -285,6 +293,8 @@
             
             ganttActualData.push({ data: actDataPoint, color: barColor });
         });
+        
+        totalActualToday = data.reduce((sum, row) => sum + parsePercent(row['貢獻度 (%)']), 0);
 
         const finalActualData = ganttActualData.map(d => d.data);
         const finalActualColors = ganttActualData.map(d => d.color || 'transparent');
@@ -300,13 +310,15 @@
             sPlanned.push(0);
             sActual.push(0);
 
+            let cumulativeActual = 0;
+
             historicalDateKeys.forEach(dateKey => {
                 const currentDate = parseDate(dateKey);
                 if (!currentDate) return;
                 sLabels.push(currentDate.valueOf());
 
                 let cumulativePlanned = 0;
-                let cumulativeActual = 0;
+                let dailyActualTotal = 0;
 
                 data.forEach(row => {
                     if (!row['任務名稱']) return;
@@ -326,11 +338,19 @@
                     cumulativePlanned += plannedContrib;
 
                     const actualProgressOnDate = parsePercent(row[dateKey]);
-                    cumulativeActual += (actualProgressOnDate / 100) * weight;
+                    dailyActualTotal += actualProgressOnDate;
                 });
                 
                 sPlanned.push(cumulativePlanned.toFixed(2));
-                sActual.push(cumulativeActual.toFixed(2));
+                
+                if (dailyActualTotal > 0) {
+                    cumulativeActual = data.reduce((sum, row) => {
+                        return sum + (parsePercent(row[dateKey]) / 100 * parsePercent(row['全案權重 (%)']));
+                    }, 0);
+                    sActual.push(cumulativeActual.toFixed(2));
+                } else {
+                    sActual.push(null);
+                }
             });
         }
         
@@ -368,15 +388,15 @@
                         label: '預定進度',
                         data: plannedData,
                         backgroundColor: 'rgba(0, 0, 0, 0.15)',
-                        barPercentage: 1.5,
-                        categoryPercentage: 0.8,
+                        barPercentage: 1.3,
+                        categoryPercentage: 0.7
                     },
                     {
                         label: '實際進度',
                         data: actualData,
                         backgroundColor: actualColors,
-                        barPercentage: 0.5,
-                        categoryPercentage: 0.8
+                        barPercentage: 0.7,
+                        categoryPercentage: 0.7
                     }
                 ]
             },
@@ -389,7 +409,8 @@
                         type: 'time',
                         time: { unit: 'month' },
                         min: '2025-10-27',
-                        position: 'top'
+                        position: 'top',
+                        stacked: false
                     },
                     y: { 
                         stacked: false 
@@ -461,7 +482,8 @@
                         borderWidth: 3, 
                         pointRadius: 2, 
                         fill: 'start', 
-                        backgroundColor: 'rgba(52, 152, 219, 0.1)' 
+                        backgroundColor: 'rgba(52, 152, 219, 0.1)', 
+                        spanGaps: false
                     }
                 ]
             },
@@ -479,6 +501,16 @@
                         callbacks: {
                             title: function(context) {
                                 return new Date(context[0].parsed.x).toLocaleDateString();
+                            },
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.y !== null) {
+                                    label += context.parsed.y + '%';
+                                }
+                                return label;
                             }
                         }
                     },
