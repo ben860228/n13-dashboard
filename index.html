@@ -78,8 +78,6 @@
             transition: transform 0.5s ease-out;
             z-index: 10;
             display: flex; justify-content: center; align-items: center;
-            /* 允許溢出，避免切字 */
-            overflow: visible; 
         }
 
         .map-wrapper:hover {
@@ -196,6 +194,7 @@
             transform: translateY(50%) translateY(1px) scale(1.1);
         }
         
+        /* 右側標籤 Hover 修正 */
         body:not(.is-calibrating) .project-pin-anchor:hover .pin-label-right {
             transform: translateY(-50%) translateX(2px) scale(1.1);
         }
@@ -212,6 +211,7 @@
 
         /* --- 5. 座標設定 --- */
         
+        /* 南投 N13 */
         .pin-n13 { 
             top: 43.4%;  
             left: 50.6%; 
@@ -220,6 +220,7 @@
             box-shadow: 0 0 20px #FF0000;
         }
 
+        /* 花蓮玉里 */
         .pin-yuli {
             top: 54.4%;
             left: 73.2%;
@@ -303,39 +304,23 @@
             transform: scale(1.5);
         }
 
-        /* =========================================
-           ★★★ 手機版專屬修正 (max-width: 768px) ★★★ 
-           ========================================= */
         @media (max-width: 768px) {
             .portal-header { height: 80px; }
             .portal-logo-img { height: 40px; }
             .portal-title { font-size: 0.9em; margin-top: 3px; }
-            
-            /* ★★★ 終極縮放修正 ★★★ */
             .map-wrapper {
-                /* 1. 恢復 480px 固定寬度 (確保內部相對位置不變) */
-                width: 480px; 
-                
-                /* 2. 絕對置中 */
-                top: 55%;
-                left: 50%; 
-                
-                /* 3. 使用 scale(0.65) 整體縮小，適應手機寬度 */
-                /* 480px * 0.65 = 312px，這樣絕對塞得進手機 (通常 360px+) */
-                transform: translate(-50%, -50%) perspective(800px) rotateX(40deg) rotateZ(15deg) scale(0.65);
+                width: 85vw; top: 55%;
+                transform: translate(-50%, -50%) perspective(800px) rotateX(40deg) rotateZ(15deg);
             }
-            
             .map-wrapper:hover {
-                transform: translate(-50%, -50%) perspective(800px) rotateX(40deg) rotateZ(15deg) scale(0.65);
+                transform: translate(-50%, -50%) perspective(800px) rotateX(40deg) rotateZ(15deg);
             }
             
-            /* 線條跟標籤可以維持原樣，因為整體都被 scale 縮小了 */
-            /* 但為了視覺平衡，我們還是可以微調一下距離 */
             .pin-connector-L { width: 80px; height: 40px; }
-            .pin-label { right: 80px; bottom: 40px; font-size: 1.1em; padding: 6px 12px; }
+            .pin-label { right: 80px; bottom: 40px; font-size: 1em; padding: 6px 12px; }
             
             .pin-connector-L-right { width: 50px; height: 40px; }
-            .pin-label-right { left: 48px; top: 40px; font-size: 1.1em; padding: 6px 12px; }
+            .pin-label-right { left: 48px; top: 40px; font-size: 1em; padding: 6px 12px; }
 
             .project-pin-anchor { transform: rotateZ(-15deg) rotateX(-40deg) translateZ(50px); }
         }
