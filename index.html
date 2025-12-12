@@ -14,28 +14,20 @@
             background-color: #000; 
         }
 
-        /* --- 1. Header 區域 (乾淨實體橫幅) --- */
+        /* --- 1. Header 區域 --- */
         .portal-header {
             position: relative;
             width: 100%;
-            height: 110px; 
+            height: 110px; /* 電腦版高度 */
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             z-index: 100;
-            
-            /* 背景色：指定色 #5377A6 */
             background-color: #5377A6; 
-            
-            /* ★★★ 修正：徹底移除紅色底線 ★★★ */
-            border-bottom: none; 
-            
-            /* 僅保留陰影增加立體感 */
             box-shadow: 0 5px 20px rgba(0,0,0,0.5); 
         }
         
-        /* LOGO 容器：強制透明、無框 */
         .logo-box {
             background: transparent !important; 
             padding: 0 !important; 
@@ -48,7 +40,7 @@
             height: 50px; 
             width: auto;
             display: block;
-            filter: none; /* 原圖直出 */
+            filter: none; 
         }
 
         .portal-title {
@@ -60,13 +52,12 @@
             text-shadow: 0 1px 2px rgba(0,0,0,0.3);
         }
 
-        /* --- 2. 水面背景 (Canvas 容器) --- */
+        /* --- 2. 水面背景 --- */
         #water-canvas {
             position: absolute;
-            top: 110px; /* 接在 Header 下方 */
-            left: 0;
+            top: 0; left: 0; /* 讓 Canvas 填滿全螢幕，Header 蓋在上面 */
             width: 100%; 
-            height: calc(100% - 110px); 
+            height: 100%; 
             z-index: 1;
             background-color: #5377A6; 
         }
@@ -75,10 +66,12 @@
         .map-wrapper {
             position: absolute;
             top: 55%; left: 50%;
-            width: 480px; 
+            width: 480px; /* 電腦版寬度 */
             height: auto; 
-            /* 維持您覺得不錯的角度 */
+            
+            /* 3D 姿態 */
             transform: translate(-50%, -50%) perspective(1000px) rotateX(45deg) rotateZ(20deg);
+            
             transform-style: preserve-3d;
             transition: transform 0.5s ease-out;
             z-index: 10;
@@ -98,6 +91,7 @@
         /* --- 4. 專案標籤 (Pin) --- */
         .project-pin {
             position: absolute;
+            /* 抵消地圖旋轉，讓標籤站立 */
             transform: rotateZ(-20deg) rotateX(-45deg); 
             cursor: pointer;
             z-index: 20;
@@ -143,7 +137,56 @@
 
         /* --- 5. 座標設定 (N13) --- */
         .pin-n13 { 
-            top: 42%; left: 48%; 
+            top: 42%; left: 47%; 
+        }
+
+        /* =========================================
+           ★★★ RWD 手機版優化 (寬度 < 768px) ★★★ 
+           ========================================= */
+        @media (max-width: 768px) {
+            /* 1. Header 瘦身 */
+            .portal-header {
+                height: 80px; /* 高度縮減 */
+            }
+            .portal-logo-img {
+                height: 40px; /* LOGO 縮小 */
+            }
+            .portal-title {
+                font-size: 0.9em; /* 文字縮小 */
+                margin-top: 3px;
+            }
+
+            /* 2. 地圖縮放與位置調整 */
+            .map-wrapper {
+                width: 85vw; /* 改用螢幕寬度的 85% */
+                top: 55%;    /* 維持置中 */
+                
+                /* 手機版角度稍微調整，避免歪太兇看不清楚 */
+                transform: translate(-50%, -50%) perspective(800px) rotateX(40deg) rotateZ(15deg);
+            }
+            
+            /* 手機版移除 hover 上浮效果，避免觸控怪怪的 */
+            .map-wrapper:hover {
+                transform: translate(-50%, -50%) perspective(800px) rotateX(40deg) rotateZ(15deg);
+            }
+
+            /* 3. 標籤調整 */
+            .project-pin {
+                /* 配合手機版地圖角度修正 */
+                transform: rotateZ(-15deg) rotateX(-40deg);
+            }
+            .project-pin:hover {
+                transform: rotateZ(-15deg) rotateX(-40deg) scale(1.1);
+            }
+            
+            /* 標籤文字縮小，避免擋住地圖 */
+            .pin-label {
+                font-size: 0.9em;
+                padding: 4px 10px;
+            }
+            .pin-line {
+                height: 25px; /* 線條縮短 */
+            }
         }
 
     </style>
@@ -184,7 +227,7 @@
         resize();
 
         function draw() {
-            // 1. 底色：嚴格鎖定 #5377A6 漸層
+            // 底色：鎖定 #5377A6 漸層
             const bgGradient = ctx.createLinearGradient(0, 0, 0, height);
             bgGradient.addColorStop(0, '#5377A6');       
             bgGradient.addColorStop(1, '#2c3e50');       
@@ -192,11 +235,10 @@
             ctx.fillStyle = bgGradient;
             ctx.fillRect(0, 0, width, height);
 
-            // 2. 光紋疊加模式
             ctx.globalCompositeOperation = 'overlay'; 
             ctx.lineWidth = 3; 
 
-            // 3. 繪製光紋 (Caustics) - 白色半透明
+            // 繪製光紋 (Caustics) - 白色半透明
             for (let i = 1; i <= 3; i++) {
                 ctx.beginPath();
                 ctx.strokeStyle = `rgba(255, 255, 255, ${0.12 / i})`;
