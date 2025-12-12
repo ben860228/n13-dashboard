@@ -3,7 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>經一綠能 - 專案管理平台</title>
+    <title>經一綠能 - 工程專案管理平台</title>
+    
+    <meta property="og:title" content="經一綠能 - 工程專案管理平台">
+    <meta property="og:description" content="經一綠能 全台各處工程的進度追蹤平台. Ben Liu.">
+    <meta property="og:image" content="images/LOGO-WITHNAME-BLUE-HUNDE.png">
+    <meta property="og:type" content="website">
+
     <style>
         /* --- 全局設定 --- */
         body, html { 
@@ -45,7 +51,7 @@
 
         .portal-title {
             color: #fff;
-            font-size: 1.1em; 
+            font-size: 1.4em; 
             font-weight: 900; 
             letter-spacing: 2px; 
             margin-top: 5px;
@@ -71,7 +77,6 @@
             transform-style: preserve-3d;
             transition: transform 0.5s ease-out;
             z-index: 10;
-            /* 修正寬螢幕漂移：確保容器緊貼內容 */
             display: flex; justify-content: center; align-items: center;
         }
 
@@ -89,7 +94,7 @@
             -webkit-user-drag: none;
         }
 
-        /* --- 4. 專案標籤組件 (錨點) --- */
+        /* --- 4. 專案標籤組件 --- */
         .project-pin-anchor {
             position: absolute;
             transform: rotateZ(-20deg) rotateX(-45deg) translateZ(100px);
@@ -98,7 +103,6 @@
             cursor: pointer;
         }
 
-        /* 紅點 */
         .pin-dot {
             position: absolute;
             top: -8px; left: -8px; 
@@ -112,7 +116,7 @@
             transition: transform 0.2s;
         }
 
-        /* L型連線 */
+        /* === 左側延伸樣式 (N13) === */
         .pin-connector-L {
             position: absolute;
             bottom: 0; right: 0;
@@ -127,10 +131,9 @@
             transition: opacity 0.3s;
         }
 
-        /* 標籤 */
         .pin-label {
             position: absolute;
-            right: 150px; bottom: 60px; 
+            right: 150px; bottom: 60px;
             background: #fff;
             color: #003366; 
             padding: 8px 18px; 
@@ -147,47 +150,112 @@
             transform: translateY(50%) translateY(1px); 
         }
 
-        /* Hover 互動 */
-        body:not(.is-calibrating) .project-pin-anchor:hover .pin-label {
+        /* === 右側延伸樣式 (玉里) === */
+        .pin-connector-L-right {
+            position: absolute;
+            top: 0; left: 0; 
+            width: 80px; height: 60px; 
+            box-sizing: border-box; 
+            border-left: 2px solid #fff;
+            border-bottom: 2px solid #fff;
+            transform: translateX(-1px);
+            filter: drop-shadow(2px 2px 3px rgba(0,0,0,0.5)) drop-shadow(0 0 5px rgba(255,255,255,0.8));
+            pointer-events: none;
+            z-index: 1;
+            transition: opacity 0.3s;
+        }
+
+        .pin-label-right {
+            position: absolute;
+            left: 78px;  
+            top: 60px;   
+            background: #fff;
+            color: #003366; 
+            padding: 8px 18px; 
+            font-weight: 800; 
+            font-size: 1.3em; 
+            border-radius: 4px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.6);
+            text-decoration: none;
+            white-space: nowrap;
+            border: 2px solid #fff;
+            pointer-events: auto; 
+            transition: all 0.3s;
+            z-index: 2;
+            transform: translateY(-50%) translateX(2px); 
+        }
+
+        /* Hover 互動 (共用) */
+        body:not(.is-calibrating) .project-pin-anchor:hover .pin-label,
+        body:not(.is-calibrating) .project-pin-anchor:hover .pin-label-right {
             background: #FFC107; 
             color: #000;
             border-color: #FFC107;
             transform: translateY(50%) translateY(1px) scale(1.1);
         }
+        
+        /* 右側標籤 Hover 修正 */
+        body:not(.is-calibrating) .project-pin-anchor:hover .pin-label-right {
+            transform: translateY(-50%) translateX(2px) scale(1.1);
+        }
+
         body:not(.is-calibrating) .project-pin-anchor:hover .pin-dot {
             transform: scale(1.5);
-            background: #FFC107;
-            box-shadow: 0 0 20px #FFC107;
         }
-        body:not(.is-calibrating) .project-pin-anchor:hover .pin-connector-L {
+        
+        body:not(.is-calibrating) .project-pin-anchor:hover .pin-connector-L,
+        body:not(.is-calibrating) .project-pin-anchor:hover .pin-connector-L-right {
             border-color: #FFC107;
             filter: drop-shadow(0 0 8px #FFC107);
         }
 
         /* --- 5. 座標設定 --- */
+        
+        /* 南投 N13 */
         .pin-n13 { 
             top: 43.4%;  
             left: 50.6%; 
         }
+        .pin-n13:hover .pin-dot {
+            box-shadow: 0 0 20px #FF0000;
+        }
+
+        /* 花蓮玉里 */
+        .pin-yuli {
+            top: 54.4%;
+            left: 73.2%;
+        }
+        .pin-yuli .pin-dot {
+            background: #FFD700;
+            box-shadow: 0 0 15px #FFD700;
+        }
+        .pin-yuli:hover .pin-dot {
+            box-shadow: 0 0 20px #FFD700;
+        }
 
         /* =========================================
-           ★★★ 工程模式 UI ★★★ 
+           ★★★ 工程模式 UI (隱形板手) ★★★ 
            ========================================= */
         #calibration-toggle {
             position: fixed;
-            bottom: 20px; left: 20px;
-            width: 40px; height: 40px;
+            bottom: 10px; left: 10px;
+            width: 30px; height: 30px;
             border-radius: 50%;
-            background: rgba(255, 255, 255, 0.2);
-            border: 1px solid rgba(255, 255, 255, 0.4);
-            color: #fff; font-size: 20px;
-            cursor: pointer; z-index: 1000;
+            background: transparent; 
+            border: none;
+            color: rgba(255, 255, 255, 0.5);
+            opacity: 0.05; 
+            font-size: 16px;
+            cursor: pointer;
+            z-index: 9999;
             display: flex; align-items: center; justify-content: center;
-            transition: all 0.3s;
+            transition: all 0.3s ease;
         }
         #calibration-toggle:hover {
-            background: rgba(255, 255, 255, 0.5);
-            transform: rotate(90deg);
+            opacity: 1;
+            background: rgba(0, 0, 0, 0.6);
+            color: #fff;
+            transform: scale(1.2);
         }
 
         #debug-panel {
@@ -225,17 +293,17 @@
         #copy-prompt-btn:active { transform: translateY(1px); }
 
         body.is-calibrating .pin-label,
-        body.is-calibrating .pin-connector-L {
+        body.is-calibrating .pin-label-right,
+        body.is-calibrating .pin-connector-L,
+        body.is-calibrating .pin-connector-L-right {
             display: none !important;
         }
-        
         body.is-calibrating .pin-dot.selected {
             background: #00E676; 
             box-shadow: 0 0 20px #00E676;
             transform: scale(1.5);
         }
 
-        /* RWD 手機版 */
         @media (max-width: 768px) {
             .portal-header { height: 80px; }
             .portal-logo-img { height: 40px; }
@@ -247,14 +315,45 @@
             .map-wrapper:hover {
                 transform: translate(-50%, -50%) perspective(800px) rotateX(40deg) rotateZ(15deg);
             }
+            
             .pin-connector-L { width: 80px; height: 40px; }
             .pin-label { right: 80px; bottom: 40px; font-size: 1em; padding: 6px 12px; }
+            
+            .pin-connector-L-right { width: 50px; height: 40px; }
+            .pin-label-right { left: 48px; top: 40px; font-size: 1em; padding: 6px 12px; }
+
             .project-pin-anchor { transform: rotateZ(-15deg) rotateX(-40deg) translateZ(50px); }
         }
 
     </style>
 </head>
 <body>
+
+    <div class="portal-header">
+        <div class="logo-box">
+            <img src="images/LOGO-WITHNAME-BLUE-HUNDE.png" alt="經一綠能" class="portal-logo-img">
+        </div>
+        <div class="portal-title">工程專案管理平台</div>
+    </div>
+
+    <canvas id="water-canvas"></canvas>
+
+    <div class="map-wrapper">
+        <img src="images/taiwan-map.png" alt="Taiwan Map" class="taiwan-img">
+
+        <div id="pin-n13" class="project-pin-anchor pin-n13" onclick="handlePinClick('n13-dashboard.html', this)">
+            <a href="n13-dashboard.html" class="pin-label">南投 N13</a>
+            <div class="pin-connector-L"></div>
+            <div class="pin-dot"></div>
+        </div>
+
+        <div id="pin-yuli" class="project-pin-anchor pin-yuli" onclick="handleYuliClick(this)">
+            <span class="pin-label-right" style="cursor: help;">花蓮 玉里</span> 
+            <div class="pin-connector-L-right"></div>
+            <div class="pin-dot"></div>
+        </div>
+
+    </div>
 
     <button id="calibration-toggle" title="開啟座標校正模式">🔧</button>
 
@@ -269,124 +368,10 @@
         <div>Target: <span id="target-name" style="color:#fff;">N13</span></div>
         <div>Top: <span id="val-top">--</span>%</div>
         <div>Left: <span id="val-left">--</span>%</div>
-        
         <button id="copy-prompt-btn">📋 複製 AI Prompt</button>
     </div>
 
-    <div class="portal-header">
-        <div class="logo-box">
-            <img src="images/LOGO-WITHNAME-BLUE-HUNDE.png" alt="經一綠能" class="portal-logo-img">
-        </div>
-        <div class="portal-title">專案管理平台</div>
-    </div>
-
-    <canvas id="water-canvas"></canvas>
-
-    <div class="map-wrapper">
-        <img src="images/taiwan-map.png" alt="Taiwan Map" class="taiwan-img">
-
-        <div id="pin-n13" class="project-pin-anchor pin-n13" onclick="handlePinClick('n13-dashboard.html', this)">
-            <a href="n13-dashboard.html" class="pin-label">南投 N13</a>
-            <div class="pin-connector-L"></div>
-            <div class="pin-dot"></div>
-        </div>
-    </div>
-
     <script>
-        // --- 1. 工程模式與座標校正腳本 ---
-        const toggleBtn = document.getElementById('calibration-toggle');
-        const debugPanel = document.getElementById('debug-panel');
-        const valTop = document.getElementById('val-top');
-        const valLeft = document.getElementById('val-left');
-        const targetName = document.getElementById('target-name');
-        const copyBtn = document.getElementById('copy-prompt-btn');
-        
-        let isCalibrating = false;
-        let selectedPin = document.getElementById('pin-n13');
-        
-        function updateDebugInfo() {
-            if(selectedPin) {
-                const computed = getComputedStyle(selectedPin);
-                const parentH = selectedPin.parentElement.offsetHeight;
-                const parentW = selectedPin.parentElement.offsetWidth;
-                
-                let t = selectedPin.style.top ? parseFloat(selectedPin.style.top) : (parseFloat(computed.top) / parentH * 100);
-                let l = selectedPin.style.left ? parseFloat(selectedPin.style.left) : (parseFloat(computed.left) / parentW * 100);
-
-                valTop.textContent = t.toFixed(1);
-                valLeft.textContent = l.toFixed(1);
-                targetName.textContent = selectedPin.id.replace('pin-', '').toUpperCase();
-            }
-        }
-
-        toggleBtn.addEventListener('click', () => {
-            isCalibrating = !isCalibrating;
-            if (isCalibrating) {
-                document.body.classList.add('is-calibrating');
-                debugPanel.style.display = 'block';
-                if(selectedPin) selectedPin.querySelector('.pin-dot').classList.add('selected');
-                window.dispatchEvent(new Event('resize'));
-                updateDebugInfo();
-            } else {
-                document.body.classList.remove('is-calibrating');
-                debugPanel.style.display = 'none';
-                document.querySelectorAll('.pin-dot').forEach(d => d.classList.remove('selected'));
-            }
-        });
-
-        document.addEventListener('keydown', (e) => {
-            if (!isCalibrating || !selectedPin) return;
-
-            let t = parseFloat(valTop.textContent);
-            let l = parseFloat(valLeft.textContent);
-            const step = e.shiftKey ? 1.0 : 0.1; 
-            let changed = false;
-
-            switch(e.key) {
-                case 'ArrowUp': t -= step; changed = true; break;
-                case 'ArrowDown': t += step; changed = true; break;
-                case 'ArrowLeft': l -= step; changed = true; break;
-                case 'ArrowRight': l += step; changed = true; break;
-            }
-
-            if(changed) {
-                e.preventDefault();
-                selectedPin.style.top = t.toFixed(1) + '%';
-                selectedPin.style.left = l.toFixed(1) + '%';
-                updateDebugInfo();
-            }
-        });
-
-        // ★★★ 強力 Prompt 生成器 ★★★
-        copyBtn.addEventListener('click', () => {
-            if(!selectedPin) return;
-            const name = targetName.textContent;
-            const t = valTop.textContent;
-            const l = valLeft.textContent;
-            
-            // 產生包含完整情境與約束的 Prompt
-            const promptText = `【任務：更新 index.html 的地圖座標】\n\n我正在調整 3D 入口網站 (index.html) 的地圖標點位置。\n經過校正模式確認，專案【${name}】在台灣地圖上的正確 CSS 定位如下：\n\n目標檔案：index.html\n目標 CSS 類別：.pin-${name.toLowerCase()}\n新座標數值：\n  top: ${t}%;\n  left: ${l}%;\n\n執行要求：\n請找到 <style> 區塊中的 .pin-${name.toLowerCase()}，僅更新 top 和 left 屬性。請嚴格保留該類別原本的 position、transform (包含 translateZ) 等其他設定，不要覆蓋或刪除它們。`;
-            
-            navigator.clipboard.writeText(promptText).then(() => {
-                const originalText = copyBtn.textContent;
-                copyBtn.textContent = "✅ 指令已複製";
-                setTimeout(() => copyBtn.textContent = originalText, 1500);
-            });
-        });
-
-        window.handlePinClick = function(url, el) {
-            if (isCalibrating) {
-                document.querySelectorAll('.pin-dot').forEach(d => d.classList.remove('selected'));
-                selectedPin = el;
-                selectedPin.querySelector('.pin-dot').classList.add('selected');
-                updateDebugInfo();
-                event.preventDefault(); 
-            } else {
-                location.href = url;
-            }
-        }
-
-        // --- 2. 水面渲染腳本 ---
         const canvas = document.getElementById('water-canvas');
         const ctx = canvas.getContext('2d');
         let width, height;
@@ -416,7 +401,7 @@
                     ctx.moveTo(x, y);
                     while(y < height + 50) {
                         y += 20; 
-                        const xOffset = Math.sin(y * 0.005 + t * 0.002 * i + x * 0.01) * 25;
+                        const xOffset = Math.sin(y * 0.005 + t * 0.005 * i + x * 0.01) * 25;
                         ctx.lineTo(x + xOffset, y);
                     }
                 }
@@ -427,6 +412,97 @@
             requestAnimationFrame(draw);
         }
         draw();
+
+        // --- 校正模式邏輯 ---
+        const toggleBtn = document.getElementById('calibration-toggle');
+        const debugPanel = document.getElementById('debug-panel');
+        const valTop = document.getElementById('val-top');
+        const valLeft = document.getElementById('val-left');
+        const targetName = document.getElementById('target-name');
+        const copyBtn = document.getElementById('copy-prompt-btn');
+        let isCalibrating = false;
+        let selectedPin = null; 
+        
+        function updateDebugInfo() {
+            if(selectedPin) {
+                const computed = getComputedStyle(selectedPin);
+                const parentH = selectedPin.parentElement.offsetHeight;
+                const parentW = selectedPin.parentElement.offsetWidth;
+                let t = selectedPin.style.top ? parseFloat(selectedPin.style.top) : (parseFloat(computed.top) / parentH * 100);
+                let l = selectedPin.style.left ? parseFloat(selectedPin.style.left) : (parseFloat(computed.left) / parentW * 100);
+                valTop.textContent = t.toFixed(1);
+                valLeft.textContent = l.toFixed(1);
+                targetName.textContent = selectedPin.id.replace('pin-', '').toUpperCase();
+            }
+        }
+
+        toggleBtn.addEventListener('click', () => {
+            isCalibrating = !isCalibrating;
+            if (isCalibrating) {
+                document.body.classList.add('is-calibrating');
+                debugPanel.style.display = 'block';
+            } else {
+                document.body.classList.remove('is-calibrating');
+                debugPanel.style.display = 'none';
+                document.querySelectorAll('.pin-dot').forEach(d => d.classList.remove('selected'));
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (!isCalibrating || !selectedPin) return;
+            let t = parseFloat(valTop.textContent);
+            let l = parseFloat(valLeft.textContent);
+            const step = e.shiftKey ? 1.0 : 0.1; 
+            let changed = false;
+            switch(e.key) {
+                case 'ArrowUp': t -= step; changed = true; break;
+                case 'ArrowDown': t += step; changed = true; break;
+                case 'ArrowLeft': l -= step; changed = true; break;
+                case 'ArrowRight': l += step; changed = true; break;
+            }
+            if(changed) {
+                e.preventDefault();
+                selectedPin.style.top = t.toFixed(1) + '%';
+                selectedPin.style.left = l.toFixed(1) + '%';
+                updateDebugInfo();
+            }
+        });
+
+        copyBtn.addEventListener('click', () => {
+            if(!selectedPin) return;
+            const name = targetName.textContent;
+            const t = valTop.textContent;
+            const l = valLeft.textContent;
+            const promptText = `【任務：更新 index.html 的地圖座標】\n\n我正在調整 3D 入口網站 (index.html) 的地圖標點位置。\n經過校正模式確認，專案【${name}】在台灣地圖上的正確 CSS 定位如下：\n\n目標檔案：index.html\n目標 CSS 類別：.pin-${name.toLowerCase()}\n新座標數值：\n  top: ${t}%;\n  left: ${l}%;\n\n執行要求：\n請找到 <style> 區塊中的 .pin-${name.toLowerCase()}，僅更新 top 和 left 屬性。請嚴格保留該類別原本的 position、transform (包含 translateZ) 等其他設定，不要覆蓋或刪除它們。`;
+            navigator.clipboard.writeText(promptText).then(() => {
+                const originalText = copyBtn.textContent;
+                copyBtn.textContent = "✅ 指令已複製";
+                setTimeout(() => copyBtn.textContent = originalText, 1500);
+            });
+        });
+
+        window.handlePinClick = function(url, el) {
+            if (isCalibrating) {
+                document.querySelectorAll('.pin-dot').forEach(d => d.classList.remove('selected'));
+                selectedPin = el;
+                selectedPin.querySelector('.pin-dot').classList.add('selected');
+                updateDebugInfo();
+                event.preventDefault(); 
+            } else {
+                location.href = url;
+            }
+        }
+
+        window.handleYuliClick = function(el) {
+            if (isCalibrating) {
+                document.querySelectorAll('.pin-dot').forEach(d => d.classList.remove('selected'));
+                selectedPin = el;
+                selectedPin.querySelector('.pin-dot').classList.add('selected');
+                updateDebugInfo();
+            } else {
+                alert("玉里案的儀表板快做完了！👷‍♂️血汗小劉在趕工中啦！");
+            }
+        }
     </script>
 
 </body>
