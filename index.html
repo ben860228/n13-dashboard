@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>N13小水力發電廠專案 戰情儀表板</title>
+    <title>專案戰情儀表板</title>
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
@@ -15,67 +15,135 @@
 <body>
 
 <div class="container">
-    <div class="header">
-        <div>
-            <h1>N13小水力發電廠專案 戰情儀表板</h1>
-            <span id="statusMsg">準備連線...</span>
+    
+    <div class="top-dashboard-wrapper">
+        
+        <div class="card logo-block">
+            <div class="logo-placeholder">LOGO</div>
         </div>
-        <div class="date-display" id="currentDate"></div>
-    </div>
 
-    <div class="cards">
-        <div class="card">
-            <h3>預計累計進度 (Planned)</h3>
-            <div class="value" id="plannedVal">--%</div>
-            <div class="sub" id="plannedSubText">截至今日應完成</div>
+        <div class="card info-block">
+            <div class="info-header">
+                <div class="title-col">
+                    <h1 id="ui-project-name">載入中...</h1>
+                    <div class="sub-title">專案戰情儀表板</div>
+                </div>
+                <div class="date-col">
+                    <span id="currentDate"></span>
+                    <div id="statusMsg" style="font-size:0.8em; margin-top:5px; color:#999;"></div>
+                </div>
+            </div>
+
+            <div class="key-people-row">
+                <div class="kp-item">
+                    <span class="kp-label">專案主管</span>
+                    <span id="ui-boss" class="kp-value">--</span>
+                </div>
+                <div class="kp-divider"></div>
+                <div class="kp-item">
+                    <span class="kp-label">專案負責人</span>
+                    <span id="ui-sponsor" class="kp-value">--</span>
+                </div>
+            </div>
+
+            <div class="general-info-grid">
+                <div class="gi-item"><span class="gi-label">地點</span><span id="ui-location">--</span></div>
+                <div class="gi-item"><span class="gi-label">主管機關</span><span id="ui-government">--</span></div>
+                <div class="gi-item"><span class="gi-label">設計</span><span id="ui-designer">--</span></div>
+                <div class="gi-item"><span class="gi-label">營造</span><span id="ui-contractor">--</span></div>
+            </div>
         </div>
-        <div class="card">
-            <h3>實際累計進度 (Actual)</h3>
-            <div class="value" id="actualVal">--%</div>
-            <div class="sub" id="actualSubText">現場回報累計</div>
+
+        <div class="card stats-block">
+            <div class="stat-row">
+                <div class="s-label">預定進度</div>
+                <div class="s-value" id="plannedVal">--%</div>
+            </div>
+            <div class="stat-row">
+                <div class="s-label">實際進度</div>
+                <div class="s-value" id="actualVal">--%</div>
+            </div>
+            <div class="stat-row">
+                <div class="s-label">差異</div>
+                <div class="s-value" id="varianceVal">--%</div>
+                <span class="badge" id="varianceText">--</span>
+            </div>
         </div>
-        <div class="card">
-            <h3>進度差異 (Variance)</h3>
-            <div class="value" id="varianceVal">--%</div>
-            <div class="sub" id="varianceText">等待數據...</div>
+
+    </div>
+    <div class="task-grid">
+        
+        <div class="task-panel ongoing-panel">
+            <div class="panel-header-row">
+                <div class="title-group">
+                    <h3 class="panel-head">進行中任務</h3>
+                    <span class="sub-note">(紅框表示落後)</span>
+                </div>
+                <div class="category-legend">
+                    <div class="legend-pair"><span class="legend-dot dot-admin"></span>行政</div>
+                    <div class="legend-pair"><span class="legend-dot dot-design"></span>設計</div>
+                    <div class="legend-pair"><span class="legend-dot dot-const"></span>施工</div>
+                </div>
+            </div>
+            <div class="task-cols">
+                <div class="t-col">
+                    <div class="col-title">行政</div>
+                    <div id="ongoing-行政" class="t-list scrollable-list"></div>
+                </div>
+                <div class="t-col">
+                    <div class="col-title">設計</div>
+                    <div id="ongoing-設計" class="t-list scrollable-list"></div>
+                </div>
+                <div class="t-col">
+                    <div class="col-title">施工 (土木/機電)</div>
+                    <div id="ongoing-施工" class="t-list scrollable-list"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="task-panel upcoming-panel">
+            <div class="panel-header-row">
+                <div class="title-group">
+                    <h3 class="panel-head">即將發生</h3>
+                    <span class="sub-note blue">(未來 14 天)</span>
+                </div>
+            </div>
+            <div class="single-col-list scrollable-list">
+                <div id="upcoming-all"></div>
+            </div>
         </div>
     </div>
 
     <div class="chart-section">
-        <h3>N13專案S-Curve</h3>
+        <h3 id="sCurveHeader">專案 S-Curve</h3>
         <div class="chart-container">
             <canvas id="sCurveChart"></canvas>
         </div>
     </div>
 
     <div class="chart-section">
-        <h3>N13專案進度甘特圖</h3>
+        <h3 id="ganttHeader">專案整體進度甘特圖</h3>
         <div class="gantt-legend">
-            <span class="legend-item"><span class="legend-color" style="background-color: rgba(0, 0, 0, 0.15); border: 1px solid #ccc;"></span>預定進度</span>
-            <span class="legend-item"><span class="legend-color" style="background-color: #27ae60;"></span>已完成 (準時/提前)</span>
-            <span class="legend-item"><span class="legend-color" style="background-color: #c0392b;"></span>已完成 (落後)</span>
+            <span class="legend-item"><span class="legend-color" style="background-color: #27ae60;"></span>已完成</span>
             <span class="legend-item"><span class="legend-color" style="background-color: #3498db;"></span>進行中</span>
-            <span class="legend-item"><span class="legend-color" style="background-color: #f39c12;"></span>進行中 (落後)</span>
+            <span class="legend-item"><span class="legend-color" style="background-color: #f39c12;"></span>進行中(落後)</span>
+            <span class="legend-item"><span class="legend-color" style="background-color: #ff0000;"></span>因未啟動已落後</span>
         </div>
         <div class="gantt-container">
             <canvas id="ganttChart"></canvas>
         </div>
     </div>
 
-    <div class="controls">
-        <button class="primary" onclick="loadFromGoogle()">🔄 立即更新雲端資料</button>
-        <br><br>
-        <button class="btn-link" onclick="toggleManual()">連不上？切換手動輸入模式</button>
+    <div class="footer-controls">
+        <button class="simple-btn" onclick="loadFromGoogle()">🔄 重新整理</button>
+        <button class="link-btn" onclick="toggleManual()">手動輸入 CSV</button>
     </div>
-
     <div id="manualSection">
-        <p>如果雲端連線失敗，請手動貼上 CSV：</p>
-        <textarea id="csvInput" placeholder="請將 CSV 內容貼在這裡..."></textarea>
-        <button class="primary">解析手動資料</button>
+        <textarea id="csvInput" placeholder="請貼上 CSV..."></textarea>
+        <button class="simple-btn" onclick="parseManual()">確認</button>
     </div>
 </div>
 
 <script type="module" src="js/main.js"></script>
-
 </body>
 </html>
