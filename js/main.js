@@ -12,7 +12,6 @@ const today = new Date();
 today.setHours(0, 0, 0, 0);
 
 document.addEventListener('DOMContentLoaded', () => {
-    // 顯示今日日期
     document.getElementById('currentDate').textContent = "今日: " + today.toLocaleDateString();
     
     const btnRefresh = document.querySelector('button[onclick*="loadFromGoogle"]');
@@ -27,8 +26,8 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('statusMsg').textContent = "⚠️ 請先設定 CSV 連結";
     }
 
-    // ★ 初始化手機版 Tooltip 功能
-    initMobileTooltip();
+    // 初始化提示框元素 (如果 index.html 沒寫，這裡補救)
+    initTooltipOverlay();
 });
 
 window.toggleManual = function() {
@@ -64,7 +63,7 @@ window.loadFromGoogle = async function() {
         }
 
         msg.textContent = "✅ 更新成功";
-        msg.style.color = "#27ae60";
+        msg.style.color = "#2E7D32"; // 改為品牌綠
         
         processData(taskCsvText, infoCsvText);
 
@@ -86,14 +85,8 @@ function processData(taskCsv, infoCsv) {
 
     // --- 1. 解析專案資訊 ---
     let projectInfo = {
-        code: "專案代號", 
-        name: "專案名稱",
-        government: "--", 
-        location: "--",
-        designer: "--",
-        contractor: "--",
-        boss: "--",    
-        sponsor: "--"  
+        code: "專案代號", name: "專案名稱", government: "--", location: "--", 
+        designer: "--", contractor: "--", boss: "--", sponsor: "--"  
     };
 
     if (infoCsv) {
@@ -102,7 +95,6 @@ function processData(taskCsv, infoCsv) {
             if(row.length >= 2) {
                 const key = row[0].trim();
                 const val = row[1].trim();
-                
                 if(key === 'ProjectCode') projectInfo.code = val;
                 if(key === 'ProjectName') projectInfo.name = val;
                 if(key === 'Government') projectInfo.government = val;
@@ -115,7 +107,6 @@ function processData(taskCsv, infoCsv) {
         });
     }
 
-    // ★★★ 更新介面文字 ★★★
     document.getElementById('ui-project-name').textContent = projectInfo.name;
     document.getElementById('ui-location').textContent = projectInfo.location;
     document.getElementById('ui-government').textContent = projectInfo.government;
@@ -235,6 +226,8 @@ function processData(taskCsv, infoCsv) {
             if (actEnd) aStr = `${fmtDate(actStart)} ~ ${fmtDate(actEnd)}`;
             else aStr = `${fmtDate(actStart)} ~ 進行中`;
         }
+        
+        // ★★★ 準備 Tooltip 文字 (無 Emoji) ★★★
         const tipText = `【${taskName}】\n預定：${pStr}\n實際：${aStr}`;
 
         const tObj = { name: taskName, delayed: isDelayed, cat: cat, tip: tipText };
@@ -272,8 +265,8 @@ function processData(taskCsv, infoCsv) {
     if(sLabels.length > 0) renderSCurve(sLabels, sPlanned, sActual, today);
     renderGantt(ganttLabels, ganttPlannedData, finalActualData, finalActualColors, today, ganttTaskStyles);
     
-    // ★ 重新綁定 Tooltip 事件 (因為元素是動態產生的)
-    attachMobileTooltipEvents();
+    // ★★★ 綁定任務卡片事件 ★★★
+    attachTaskCardEvents();
 }
 
 function renderTaskList(elementId, tasks) {
@@ -296,45 +289,87 @@ function renderTaskList(elementId, tasks) {
             else html += `<span class="tag tag-civil">土</span>`;
         }
         html += t.name;
-        div.title = t.tip; 
+        
+        // ★★★ 將提示文字存入 data-tooltip (移除 title 屬性) ★★★
+        div.setAttribute('data-tooltip', t.tip);
+        // div.title = t.tip; // 移除這行，避免瀏覽器原生提示
+        
         div.innerHTML = html;
         el.appendChild(div);
     });
 }
 
-// ★★★ 手機 Tooltip 功能實作 ★★★
-function initMobileTooltip() {
-    // 建立一個浮動的 div
-    const overlay = document.createElement('div');
-    overlay.id = 'mobile-tooltip-overlay';
-    document.body.appendChild(overlay);
+// 建立黑色提示框 (如果沒有的話)
+function initTooltipOverlay() {
+    if (!document.getElementById('mobile-tooltip-overlay')) {
+        const overlay = document.createElement('div');
+        overlay.id = 'mobile-tooltip-overlay';
+        document.body.appendChild(overlay);
+    }
 }
 
-function attachMobileTooltipEvents() {
-    // 偵測是否為觸控裝置 (簡單判斷)或是視窗很小
-    const isMobile = ('ontouchstart' in window) || (window.innerWidth < 900);
-    
-    if(!isMobile) return;
-
+// ★★★ 綁定任務卡片事件 (電腦 Hover / 手機 Click) ★★★
+function attachTaskCardEvents() {
     const overlay = document.getElementById('mobile-tooltip-overlay');
     const items = document.querySelectorAll('.task-item');
     let timer = null;
 
+    if (!overlay) return;
+
     items.forEach(item => {
+        // --- 1. 手機版：點擊顯示 ---
         item.addEventListener('click', (e) => {
-            // 取得 title 內容
-            const text = item.getAttribute('title');
+            // 判斷是否為手機 (寬度 < 900)
+            if(window.innerWidth > 900) return; 
+
+            const text = item.getAttribute('data-tooltip');
             if(!text) return;
 
-            // 顯示內容
             overlay.textContent = text;
             overlay.classList.add('show');
+            
+            // 重置樣式為置底 Snackbar
+            overlay.style.top = ''; 
+            overlay.style.left = ''; 
+            overlay.style.bottom = '20px'; 
+            overlay.style.transform = 'translateX(-50%)'; 
 
-            // 3秒後消失，或點別的時重置計時
             if(timer) clearTimeout(timer);
             timer = setTimeout(() => {
                 overlay.classList.remove('show');
             }, 3000);
         });
+
+        // --- 2. 電腦版：滑鼠移入顯示 ---
+        item.addEventListener('mouseenter', (e) => {
+            if(window.innerWidth <= 900) return; // 手機不觸發
+
+            const text = item.getAttribute('data-tooltip');
+            if(!text) return;
+
+            overlay.textContent = text;
+            overlay.classList.add('show');
+            updateOverlayPosition(e, overlay);
+        });
+
+        // --- 3. 電腦版：滑鼠移動跟隨 ---
+        item.addEventListener('mousemove', (e) => {
+            if(window.innerWidth <= 900) return;
+            updateOverlayPosition(e, overlay);
+        });
+
+        // --- 4. 電腦版：滑鼠移出隱藏 ---
+        item.addEventListener('mouseleave', () => {
+            if(window.innerWidth <= 900) return;
+            overlay.classList.remove('show');
+        });
     });
+}
+
+// 輔助：更新提示框位置 (電腦版)
+function updateOverlayPosition(e, overlay) {
+    overlay.style.bottom = 'auto';
+    overlay.style.left = (e.clientX + 15) + 'px';
+    overlay.style.top = (e.clientY + 15) + 'px';
+    overlay.style.transform = 'none';
 }
