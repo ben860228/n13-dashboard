@@ -89,9 +89,13 @@
             height: auto;
             display: block;
             filter: drop-shadow(30px 40px 50px rgba(0,0,0,0.6));
-            opacity: 0.95;
+            opacity: 0; /* 1. 預設先隱藏，避開方形陰影 */
+            transition: opacity 0.8s ease-out; /* 2. 加入淡入動畫效果 */            user-select: none;
             user-select: none;
-            -webkit-user-drag: none;
+            -webkit-user-drag: none;        }
+        
+        .taiwan-img.loaded {
+            opacity: 0.95;
         }
 
         /* --- 4. 專案標籤組件 --- */
@@ -423,6 +427,22 @@
             requestAnimationFrame(draw);
         }
         draw();
+
+        // --- 新增這段：處理地圖淡入 ---
+        const mapImg = document.querySelector('.taiwan-img');
+        
+        function showMap() {
+            mapImg.classList.add('loaded');
+        }
+
+        // 如果圖片已經在快取中(讀取很快)，直接顯示
+        if (mapImg.complete) {
+            showMap();
+        } else {
+            // 如果還在下載，等下載完再顯示
+            mapImg.onload = showMap;
+        }
+        // ---------------------------
 
         // --- 校正模式邏輯 ---
         const toggleBtn = document.getElementById('calibration-toggle');
