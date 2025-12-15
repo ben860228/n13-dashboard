@@ -11,41 +11,41 @@ today.setHours(0, 0, 0, 0);
 
 document.addEventListener('DOMContentLoaded', () => {
     const elDate = document.getElementById('currentDate');
-    if(elDate) elDate.textContent = "今日: " + today.toLocaleDateString();
-    
-    const btnRefresh = document.querySelector('button[onclick*="loadFromGoogle"]');
-    if(btnRefresh) { btnRefresh.onclick = null; btnRefresh.addEventListener('click', loadFromGoogle); }
-    
-    const btnManual = document.querySelector('button[onclick*="toggleManual"]');
-    if(btnManual) { btnManual.onclick = null; btnManual.addEventListener('click', toggleManual); }
+    if (elDate) elDate.textContent = "今日: " + today.toLocaleDateString();
 
-    if(TASKS_CSV_URL && TASKS_CSV_URL.includes("http")) {
+    const btnRefresh = document.querySelector('button[onclick*="loadFromGoogle"]');
+    if (btnRefresh) { btnRefresh.onclick = null; btnRefresh.addEventListener('click', loadFromGoogle); }
+
+    const btnManual = document.querySelector('button[onclick*="toggleManual"]');
+    if (btnManual) { btnManual.onclick = null; btnManual.addEventListener('click', toggleManual); }
+
+    if (TASKS_CSV_URL && TASKS_CSV_URL.includes("http")) {
         loadFromGoogle();
     } else {
         const msg = document.getElementById('statusMsg');
-        if(msg) msg.textContent = "⚠️ 請先設定 CSV 連結";
+        if (msg) msg.textContent = "⚠️ 請先設定 CSV 連結";
     }
 
     initTooltipOverlay();
 });
 
-window.toggleManual = function() {
+window.toggleManual = function () {
     const el = document.getElementById('manualSection');
     el.style.display = el.style.display === 'block' ? 'none' : 'block';
 }
-window.parseManual = function() { processData(document.getElementById('csvInput').value, null); }
+window.parseManual = function () { processData(document.getElementById('csvInput').value, null); }
 
 function getLastFriday(date) {
     const d = new Date(date);
-    const day = d.getDay(); 
+    const day = d.getDay();
     const diff = (day - 5 + 7) % 7;
     d.setDate(d.getDate() - diff);
     return d;
 }
 
-window.loadFromGoogle = async function() {
+window.loadFromGoogle = async function () {
     const msg = document.getElementById('statusMsg');
-    if(msg) {
+    if (msg) {
         msg.textContent = "⏳ 更新中...";
         msg.style.color = "#3498db";
     }
@@ -62,24 +62,24 @@ window.loadFromGoogle = async function() {
         }
 
         let infoCsvText = null;
-        if(PROJECT_INFO_CSV_URL && PROJECT_INFO_CSV_URL.includes("http")) {
+        if (PROJECT_INFO_CSV_URL && PROJECT_INFO_CSV_URL.includes("http")) {
             try {
                 const infoRes = await fetch(PROJECT_INFO_CSV_URL + cacheBuster);
                 if (infoRes.ok) infoCsvText = await infoRes.text();
-            } catch(e) {
+            } catch (e) {
                 console.warn("專案資訊讀取失敗");
             }
         }
 
-        if(msg) {
+        if (msg) {
             msg.textContent = "✅ 更新成功";
-            msg.style.color = "#2E7D32"; 
+            msg.style.color = "#2E7D32";
         }
-        
+
         processData(taskCsvText, infoCsvText);
 
     } catch (err) {
-        if(msg) {
+        if (msg) {
             msg.textContent = "❌ " + err.message;
             msg.style.color = "red";
         }
@@ -90,36 +90,36 @@ window.loadFromGoogle = async function() {
 function processData(taskCsv, infoCsv) {
     if (!taskCsv) return;
     const taskData = Papa.parse(taskCsv, { header: true, skipEmptyLines: true }).data;
-    
+
     if (!taskData || taskData.length === 0) {
         alert("任務 CSV 內容為空");
         return;
     }
 
     let projectInfo = {
-        code: "專案代號", name: "專案名稱", government: "--", location: "--", 
-        designer: "--", contractor: "--", boss: "--", sponsor: "--"  
+        code: "專案代號", name: "專案名稱", government: "--", location: "--",
+        designer: "--", contractor: "--", boss: "--", sponsor: "--"
     };
 
     if (infoCsv) {
         const infoData = Papa.parse(infoCsv, { header: false, skipEmptyLines: true }).data;
         infoData.forEach(row => {
-            if(row.length >= 2) {
+            if (row.length >= 2) {
                 const key = row[0].trim();
                 const val = row[1].trim();
-                if(key === 'ProjectCode') projectInfo.code = val;
-                if(key === 'ProjectName') projectInfo.name = val;
-                if(key === 'Government') projectInfo.government = val;
-                if(key === 'Location') projectInfo.location = val;
-                if(key === 'Designer') projectInfo.designer = val;
-                if(key === 'Contractor') projectInfo.contractor = val;
-                if(key === 'ProjectBoss') projectInfo.boss = val;
-                if(key === 'ProjectSponsor') projectInfo.sponsor = val;
+                if (key === 'ProjectCode') projectInfo.code = val;
+                if (key === 'ProjectName') projectInfo.name = val;
+                if (key === 'Government') projectInfo.government = val;
+                if (key === 'Location') projectInfo.location = val;
+                if (key === 'Designer') projectInfo.designer = val;
+                if (key === 'Contractor') projectInfo.contractor = val;
+                if (key === 'ProjectBoss') projectInfo.boss = val;
+                if (key === 'ProjectSponsor') projectInfo.sponsor = val;
             }
         });
     }
 
-    const setTxt = (id, txt) => { const el = document.getElementById(id); if(el) el.textContent = txt; };
+    const setTxt = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
     setTxt('ui-project-name', projectInfo.name);
     setTxt('ui-location', projectInfo.location);
     setTxt('ui-government', projectInfo.government);
@@ -135,13 +135,29 @@ function processData(taskCsv, infoCsv) {
     let minDateOverall = new Date("2099-12-31");
     const dateColumnRegex = /^(\d{4}[\/\-](0?[1-9]|1[0-2])[\/\-](0?[1-9]|[12][0-9]|3[01]))$/;
     const allKeys = Object.keys(taskData[0]);
-    const historicalDateKeys = allKeys.filter(key => dateColumnRegex.test(key)).sort((a, b) => parseDate(a) - parseDate(b));
+    let historicalDateKeys = allKeys.filter(key => dateColumnRegex.test(key)).sort((a, b) => parseDate(a) - parseDate(b));
+
+    // --- 修正：根據已知的最晚「結束日期」截斷 X 軸 ---
+    let maxPlannedEnd = 0;
+    taskData.forEach(r => {
+        const pe = parseDate(r['結束日期']);
+        if (pe && pe.valueOf() > maxPlannedEnd) maxPlannedEnd = pe.valueOf();
+    });
+
+    if (maxPlannedEnd > 0) {
+        // 設定緩衝 30 天
+        const cutoffTime = maxPlannedEnd + (30 * 86400000);
+        historicalDateKeys = historicalDateKeys.filter(k => {
+            const kd = parseDate(k);
+            return kd && kd.valueOf() <= cutoffTime;
+        });
+    }
 
     // --- 日期判斷 ---
     const plannedDateObj = getLastFriday(today);
-    const pStr = `${plannedDateObj.getFullYear()}/${(plannedDateObj.getMonth()+1).toString().padStart(2, '0')}/${plannedDateObj.getDate().toString().padStart(2, '0')}`;
+    const pStr = `${plannedDateObj.getFullYear()}/${(plannedDateObj.getMonth() + 1).toString().padStart(2, '0')}/${plannedDateObj.getDate().toString().padStart(2, '0')}`;
     setTxt('plannedDateStr', `${pStr} 已更新`);
-    
+
     // 找出最後一個有資料的日期 (cutoff)
     let lastFilledDateStr = "--/--/--";
     historicalDateKeys.forEach(dateKey => {
@@ -160,8 +176,8 @@ function processData(taskCsv, infoCsv) {
 
     // --- S-Curve 計算 ---
     const sLabels = []; const sPlanned = []; const sActual = [];
-    let taskProgressState = {}; 
-    
+    let taskProgressState = {};
+
     // ★★★ 建立資料對照表 (用於同步圖卡數值) ★★★
     // Key: 日期字串 (如 2025/12/12), Value: { p: 9.04, a: 6.04 }
     let sCurveDataMap = {};
@@ -175,9 +191,9 @@ function processData(taskCsv, infoCsv) {
         historicalDateKeys.forEach(dateKey => {
             const currentDate = parseDate(dateKey);
             sLabels.push(currentDate.valueOf());
-            
+
             // 1. 預定進度
-            let cumulativePlanned = 0; 
+            let cumulativePlanned = 0;
             taskData.forEach(row => {
                 if (!row['任務名稱']) return;
                 const weight = parsePercent(row['全案權重 (%)']);
@@ -188,7 +204,7 @@ function processData(taskCsv, infoCsv) {
                     else if (currentDate > planStart) {
                         const totalDays = (planEnd - planStart) / 86400000;
                         const passedDays = (currentDate - planStart) / 86400000;
-                        if(totalDays>0) cumulativePlanned += weight * (passedDays / totalDays);
+                        if (totalDays > 0) cumulativePlanned += weight * (passedDays / totalDays);
                     }
                 }
             });
@@ -208,10 +224,10 @@ function processData(taskCsv, infoCsv) {
                     dailyTotalActual += (currentTaskProgress / 100 * weight);
                 });
                 sActual.push(dailyTotalActual.toFixed(2));
-            } else { 
-                sActual.push(null); 
+            } else {
+                sActual.push(null);
             }
-            
+
             // ★★★ 記錄這一天算出來的數值 ★★★
             sCurveDataMap[dateKey] = {
                 planned: cumulativePlanned.toFixed(2),
@@ -223,10 +239,10 @@ function processData(taskCsv, infoCsv) {
     // --- 3. 數據與任務清單 ---
     // (這裡保留原有的 taskData 迴圈，用於產生甘特圖和列表，但不依賴其計算總分來顯示圖卡)
     // 為了安全起見，我們還是算一下，當作「沒有對應到日期」時的備案
-    
+
     let totalPlannedToday = 0;
     let totalActualToday = 0;
-    
+
     const ganttLabels = []; const ganttPlannedData = []; const ganttActualRaw = []; const ganttTaskStyles = [];
     const categories = ['行政', '設計', '施工'];
     const ongoingTasks = { '行政': [], '設計': [], '施工': [] };
@@ -235,7 +251,7 @@ function processData(taskCsv, infoCsv) {
 
     taskData.forEach((row, index) => {
         const taskName = row['任務名稱'];
-        if (!taskName) return; 
+        if (!taskName) return;
 
         let cat = row['分類'] ? row['分類'].trim() : '施工';
         if (!categories.includes(cat)) cat = '施工';
@@ -255,7 +271,7 @@ function processData(taskCsv, infoCsv) {
                 totalPlannedToday += weight * (passedDays / totalDays);
             }
         }
-        
+
         // 實際進度備案計算
         const currentTaskProgress = taskProgressState[index] || 0;
         totalActualToday += (currentTaskProgress / 100 * weight);
@@ -271,11 +287,11 @@ function processData(taskCsv, infoCsv) {
         if (actStart) {
             let drawEnd = actEnd ? actEnd : today;
             actDataPoint = [actStart.valueOf(), drawEnd.valueOf()];
-            if (actEnd) { 
+            if (actEnd) {
                 barColor = (planEnd && actEnd > planEnd) ? '#c0392b' : '#27ae60';
                 labelStyle.color = '#bdc3c7';
             } else {
-                if (planEnd && today > planEnd) { 
+                if (planEnd && today > planEnd) {
                     barColor = '#f39c12'; labelStyle = { color: '#e74c3c', weight: 'bold' }; isDelayed = true;
                 } else {
                     barColor = '#3498db'; labelStyle = { color: '#2c3e50', weight: 'bold' };
@@ -295,11 +311,11 @@ function processData(taskCsv, infoCsv) {
             if (actEnd) aStr = `${fmtDate(actStart)} ~ ${fmtDate(actEnd)}`;
             else aStr = `${fmtDate(actStart)} ~ 進行中`;
         }
-        
+
         const tipText = `【${taskName}】\n預定：${pStr}\n實際：${aStr}`;
 
         const tObj = { name: taskName, delayed: isDelayed, cat: cat, tip: tipText };
-        
+
         if ((actStart && !actEnd) || (!actStart && planStart && today > planStart)) {
             ongoingTasks[cat].push(tObj);
         } else if (!actStart && planStart && planStart > today && (planStart - today) < (14 * 86400000)) {
@@ -308,7 +324,7 @@ function processData(taskCsv, infoCsv) {
     });
 
     // ★★★ 最終數值決定 (強制同步邏輯) ★★★
-    
+
     // 1. 預定進度
     let finalPlannedVal = totalPlannedToday.toFixed(2);
     // 檢查：如果「預定日期(pStr)」在 S-Curve 裡有資料，直接用 S-Curve 的值
@@ -328,21 +344,21 @@ function processData(taskCsv, infoCsv) {
         }
     }
     setTxt('actualVal', finalActualVal + '%');
-    
-    
+
+
     // 3. 差異計算
     const variance = parseFloat(finalActualVal) - parseFloat(finalPlannedVal);
     const elVar = document.getElementById('varianceVal');
     const elBadge = document.getElementById('varianceText');
-    if(elVar) elVar.textContent = (variance > 0 ? "+" : "") + variance.toFixed(2) + '%';
-    
+    if (elVar) elVar.textContent = (variance > 0 ? "+" : "") + variance.toFixed(2) + '%';
+
     if (elVar && elBadge) {
-        if (variance < -5) { 
-            elVar.className = "s-value text-red"; elBadge.className = "badge bg-red"; elBadge.textContent = "落後"; 
-        } else if (variance >= 0) { 
-            elVar.className = "s-value text-green"; elBadge.className = "badge bg-green"; elBadge.textContent = "超前"; 
-        } else { 
-            elVar.className = "s-value"; elBadge.className = "badge"; elBadge.textContent = "可控"; 
+        if (variance < -5) {
+            elVar.className = "s-value text-red"; elBadge.className = "badge bg-red"; elBadge.textContent = "落後";
+        } else if (variance >= 0) {
+            elVar.className = "s-value text-green"; elBadge.className = "badge bg-green"; elBadge.textContent = "超前";
+        } else {
+            elVar.className = "s-value"; elBadge.className = "badge"; elBadge.textContent = "可控";
         }
     }
 
@@ -354,25 +370,25 @@ function processData(taskCsv, infoCsv) {
     const finalActualData = ganttActualRaw.map(d => d.data);
     const finalActualColors = ganttActualRaw.map(d => d.color);
 
-    if(sLabels.length > 0) renderSCurve(sLabels, sPlanned, sActual, today);
+    if (sLabels.length > 0) renderSCurve(sLabels, sPlanned, sActual, today);
     renderGantt(ganttLabels, ganttPlannedData, finalActualData, finalActualColors, today, ganttTaskStyles);
-    
+
     attachTaskCardEvents();
 }
 
 function renderTaskList(elementId, tasks) {
     const el = document.getElementById(elementId);
-    if(!el) return;
+    if (!el) return;
     el.innerHTML = "";
-    if(tasks.length === 0) {
-        if(elementId === 'upcoming-all') el.innerHTML = "<div style='color:#ccc; text-align:center; margin-top:10px;'>無近期任務</div>";
+    if (tasks.length === 0) {
+        if (elementId === 'upcoming-all') el.innerHTML = "<div style='color:#ccc; text-align:center; margin-top:10px;'>無近期任務</div>";
         return;
     }
 
     tasks.forEach(t => {
         const div = document.createElement('div');
         div.className = `task-item cat-${t.cat}`;
-        if(t.delayed) div.classList.add('item-delayed');
+        if (t.delayed) div.classList.add('item-delayed');
 
         let html = "";
         if (t.cat === '施工') {
@@ -380,7 +396,7 @@ function renderTaskList(elementId, tasks) {
             else html += `<span class="tag tag-civil">土</span>`;
         }
         html += t.name;
-        
+
         div.setAttribute('data-tooltip', t.tip);
         div.innerHTML = html;
         el.appendChild(div);
@@ -404,35 +420,35 @@ function attachTaskCardEvents() {
 
     items.forEach(item => {
         item.addEventListener('click', (e) => {
-            if(window.innerWidth > 900) return; 
+            if (window.innerWidth > 900) return;
             const text = item.getAttribute('data-tooltip');
-            if(!text) return;
+            if (!text) return;
             overlay.textContent = text;
             overlay.classList.add('show');
-            overlay.style.top = ''; 
-            overlay.style.left = ''; 
-            overlay.style.bottom = '20px'; 
-            overlay.style.transform = 'translateX(-50%)'; 
-            if(timer) clearTimeout(timer);
+            overlay.style.top = '';
+            overlay.style.left = '';
+            overlay.style.bottom = '20px';
+            overlay.style.transform = 'translateX(-50%)';
+            if (timer) clearTimeout(timer);
             timer = setTimeout(() => { overlay.classList.remove('show'); }, 3000);
         });
 
         item.addEventListener('mouseenter', (e) => {
-            if(window.innerWidth <= 900) return; 
+            if (window.innerWidth <= 900) return;
             const text = item.getAttribute('data-tooltip');
-            if(!text) return;
+            if (!text) return;
             overlay.textContent = text;
             overlay.classList.add('show');
             updateOverlayPosition(e, overlay);
         });
 
         item.addEventListener('mousemove', (e) => {
-            if(window.innerWidth <= 900) return;
+            if (window.innerWidth <= 900) return;
             updateOverlayPosition(e, overlay);
         });
 
         item.addEventListener('mouseleave', () => {
-            if(window.innerWidth <= 900) return;
+            if (window.innerWidth <= 900) return;
             overlay.classList.remove('show');
         });
     });
