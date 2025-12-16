@@ -2,6 +2,10 @@
 var CHANNEL_ACCESS_TOKEN = 'VoAz9cbhWZf8Ip0ROd25Z2LJmiBe6e4i2W51fgZzvYQckcp8+6QfQIqU92XZuVcH6i+dChBnRyGvGG9oW5jH/16W+/7JTr9vCYpEbuHulInhJdetaHOEP37LoUqrLwxuxk46HdwilwDzLgQauM4LwwdB04t89/1O/w1cDnyilFU='; // 請填入 LINE Messaging API 的 Channel Access Token
 var SPREADSHEET_ID = '1cLUBzhB-lcwlHSq3LzMAGQumJiNsIpkfbQrPKpTXw_I'; // 請填入 Google Sheet ID
 
+// 🟢 請在此填入您的 Web App URL (以 /exec 結尾的那串)
+// 這樣可以確保電腦版連結絕對正確，不會跳到錯誤頁面
+var WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzNloNwSmUp20rD72sEnY9_DgbIu8Lhr7O46lHooXXvxgiqfibAiEPBP9NAl8tj4H5H/exec'; 
+
 /**
  * 接收 LINE Webhook 事件
  */
@@ -51,9 +55,6 @@ function doGet(e) {
         .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
-/**
- * [LIFF API] 取得使用者設定與專案列表
- */
 /**
  * [LIFF API] 取得使用者設定與專案列表 (支援手動登入版)
  */
@@ -138,15 +139,17 @@ function submitBulletin(data) {
         var targetSheet = SpreadsheetApp.openById(data.projectId).getSheetByName('bulletin');
         if (!targetSheet) throw new Error('Bulletin sheet not found in target project');
 
-        // Columns: Timestamp, Date, Author, Type, Category, Content, Images (optional)
+        // Columns Based on User Screenshot:
+        // A: Timestamp, B: Date, C: Author, D: Type, E: Category, F: Item, G: Content, H: Images
         var rowData = [
-            new Date(),      // Timestamp
-            data.date,       // Date (from form)
-            userInfo.userName, // Author (from verified binding)
+            Utilities.formatDate(new Date(), "GMT+8", "yyyy/MM/dd HH:mm:ss"), // Timestamp
+            data.date,       // Date
+            userInfo.userName, // Author
             data.type,       // Type
-            data.category || '', // Category (optional)
-            data.content,     // Content,
-            ''               // Images placeholder
+            data.category || '', // Category
+            data.item || '',   // Item (Work Item) - Column F
+            data.content,     // Content - Column G
+            ''               // Images placeholder - Column H
         ];
 
         targetSheet.appendRow(rowData);
@@ -159,8 +162,118 @@ function submitBulletin(data) {
 }
 
 /**
- * 處理文字訊息邏輯 (Webhook)
+ * [LIFF API] 取得專案任務列表
  */
+/**
+ * [LIFF API] 取得專案任務列表
+ */
+/**
+ * [LIFF API] 取得專案任務列表 (Debug Mode)
+ */
+/**
+ * [LIFF API] 取得專案任務列表 (Debug Mode)
+ */
+function getProjectTasks(projectId) {
+    var logs = [];
+    logs.push("Start: " + projectId);
+
+    // Default to empty array if projectId is missing
+    if (!projectId) return JSON.stringify({ success: false, logs: ["No Project ID"], tasks: [] });
+
+    try {
+        var app;
+        try {
+            // Try openById (Requires Scope)
+            app = SpreadsheetApp.openById(projectId);
+            logs.push("Opened Spreadsheet");
+        } catch(e) {
+            logs.push("Open Error: " + e.message);
+            // Fallback: If projectId matches the bound script, try getActive
+            // But usually this error means "Permission Denied" or "Invalid ID"
+            return JSON.stringify({ success: false, logs: logs, tasks: [] });
+        }
+
+        var sheet = app.getSheets()[0]; 
+        if (!sheet) {
+            logs.push("No header sheet found");
+            return JSON.stringify({ success: false, logs: logs, tasks: [] });
+        }
+        logs.push("Got Sheet: " + sheet.getName());
+
+        var range = sheet.getDataRange();
+        var data = range.getValues();
+        logs.push("Data rows: " + data.length);
+        
+        if (data.length < 2) {
+             logs.push("Data too short");
+             return JSON.stringify({ success: true, logs: logs, tasks: [] });
+        }
+
+        var headers = data[0];
+        var colMap = {};
+        
+        headers.forEach(function(h, i) {
+            var label = String(h).trim();
+            colMap[label] = i;
+        });
+
+        function getColIndex(possibleNames) {
+            for (var i = 0; i < possibleNames.length; i++) {
+                var name = possibleNames[i];
+                if (colMap.hasOwnProperty(name)) return colMap[name];
+            }
+            return -1;
+        }
+
+        var idxName = getColIndex(['任務名稱', 'TaskName', 'Name']);
+        var idxCat = getColIndex(['分類', 'Category']);
+        var idxPlanStart = getColIndex(['開始時間', 'Start', 'StartDate']);
+        var idxPlanEnd = getColIndex(['結束日期', 'End', 'EndDate']);
+        var idxActStart = getColIndex(['實際開始時間', 'ActualStart']);
+        var idxActEnd = getColIndex(['實際完成時間', 'ActualEnd']);
+        var idxWeight = getColIndex(['全案權重 (%)', 'Weight']);
+
+        if (idxName === -1) {
+            logs.push("TaskName Col Not Found");
+            return JSON.stringify({ success: false, logs: logs, tasks: [] });
+        }
+
+        var tasks = [];
+        // Helper
+        function safeStr(val) {
+             if (!val) return "";
+             if (val instanceof Date) {
+                 return Utilities.formatDate(val, Session.getScriptTimeZone(), "yyyy/MM/dd");
+             }
+             return String(val).trim();
+        }
+
+        var maxRows = Math.min(data.length, 500); 
+        for (var i = 1; i < maxRows; i++) {
+            var row = data[i];
+            var name = row[idxName];
+            if (!name) continue;
+
+            tasks.push({
+                name: String(name),
+                category: idxCat !== -1 ? String(row[idxCat]) : '',
+                planStart: idxPlanStart !== -1 ? safeStr(row[idxPlanStart]) : '',
+                planEnd: idxPlanEnd !== -1 ? safeStr(row[idxPlanEnd]) : '',
+                actStart: idxActStart !== -1 ? safeStr(row[idxActStart]) : '',
+                actEnd: idxActEnd !== -1 ? safeStr(row[idxActEnd]) : '',
+                weight: idxWeight !== -1 ? (Number(String(row[idxWeight]).replace('%','')) || 0) : 0
+            });
+        }
+        
+        logs.push("Tasks extracted: " + tasks.length);
+        return JSON.stringify({ success: true, logs: logs, tasks: tasks });
+
+    } catch (e) {
+        logs.push("Crash: " + e.toString());
+        return JSON.stringify({ success: false, logs: logs, tasks: [] });
+    }
+}
+
 /**
  * 處理文字訊息邏輯
  */
@@ -168,6 +281,42 @@ function handleMessage(event) {
     var replyToken = event.replyToken;
     var userId = event.source.userId;
     var userMessage = event.message.text.trim();
+
+    // 0. 電腦版選單指令
+    if (userMessage === '選單' || userMessage === 'menu' || userMessage === '功能') {
+        var menuFlex = {
+            "type": "bubble",
+            "size": "giga",
+            "body": {
+                "type": "box",
+                "layout": "vertical",
+                "contents": [
+                    { "type": "text", "text": "🖥️ 電腦版功能選單", "weight": "bold", "size": "xl", "align": "center", "color": "#1DB446" },
+                    { "type": "separator", "margin": "md" },
+                    { "type": "text", "text": "請選擇您要執行的動作：", "margin": "md", "color": "#aaaaaa", "size": "sm" },
+                    {
+                        "type": "box", "layout": "vertical", "margin": "md", "spacing": "sm",
+                        "contents": [
+                            {
+                                "type": "button", "style": "secondary", "height": "sm", "action": { "type": "message", "label": "📢 專案回報", "text": "專案回報" }
+                            },
+                            {
+                                "type": "button", "style": "secondary", "height": "sm", "action": { "type": "message", "label": "🔗 帳號綁定", "text": "帳號綁定" }
+                            },
+                            {
+                                "type": "button", "style": "secondary", "height": "sm", "action": { "type": "message", "label": "📖 使用教學", "text": "使用教學" }
+                            },
+                            {
+                                "type": "button", "style": "primary", "height": "sm", "color": "#0d6efd", "action": { "type": "uri", "label": "📊 開啟儀表板", "uri": "https://ben860228.github.io/Jingyi-PCM/" }
+                            }
+                        ]
+                    }
+                ]
+            }
+        };
+        replyFlex(replyToken, "電腦版功能選單", menuFlex);
+        return;
+    }
 
     // 1. 綁定指令
     if (userMessage.startsWith('綁定 ')) {
@@ -258,10 +407,9 @@ function processNameBinding(replyToken, userId, inputName) {
 }
 
 /**
- * 產生專屬登入連結
+ * 產生專屬登入連結 (短網址版)
  */
 function generateMagicLink(replyToken, userId) {
-    // 先檢查這個人有沒有綁定過，沒有綁定就不給連結
     var app = SpreadsheetApp.openById(SPREADSHEET_ID);
     var staffSheet = app.getSheetByName('staff-table') || app.getSheetByName('Staff_List');
     var data = staffSheet.getDataRange().getValues();
@@ -270,7 +418,6 @@ function generateMagicLink(replyToken, userId) {
 
     // 簡單檢查綁定
     for (var i = 1; i < data.length; i++) {
-        // 去除空白比較保險
         if (String(data[i][5]).trim() === String(userId).trim()) {
             isBound = true;
             userName = data[i][1];
@@ -284,15 +431,43 @@ function generateMagicLink(replyToken, userId) {
     }
 
     // 取得目前的 Web App 網址
-    var scriptUrl = ScriptApp.getService().getUrl();
+    var scriptUrl = "";
     
-    // 如果 ScriptApp 抓不到 (有時候會這樣)，請手動填入你剛剛複製的那串 /exec 網址
-    // var scriptUrl = "https://script.google.com/.../exec"; 
+    if (typeof WEB_APP_URL !== 'undefined' && WEB_APP_URL && WEB_APP_URL.trim() !== "") {
+        // 優先使用使用者手動填寫的正確網址
+        scriptUrl = WEB_APP_URL;
+    } else {
+        // Fallback: 自動抓取
+        scriptUrl = ScriptApp.getService().getUrl();
+        // 防呆：確保網址結尾是 /exec (避免跑到 /dev)
+        if (scriptUrl.endsWith('/dev')) {
+            scriptUrl = scriptUrl.replace('/dev', '/exec');
+        }
+    }
     
-    // 組合專屬連結 (把 ID 藏在參數裡)
-    var magicUrl = scriptUrl + "?uid=" + userId;
+    // 組合專屬連結
+    var longUrl = scriptUrl + "?uid=" + userId;
+    
+    // 轉成短網址
+    var shortUrl = getShortUrl(longUrl);
 
-    replyText(replyToken, "嗨 " + userName + "，這是您的專屬回報連結 (請勿轉傳)：\n" + magicUrl);
+    replyText(replyToken, "嗨 " + userName + "，這是您的專屬回報連結：\n" + shortUrl);
+}
+
+/**
+ * [Helper] 縮短網址 (使用 is.gd, 避免 TinyURL 的中轉頁面)
+ */
+function getShortUrl(longUrl) {
+    try {
+        var api = 'https://is.gd/create.php?format=simple&url=' + encodeURIComponent(longUrl);
+        var response = UrlFetchApp.fetch(api);
+        if (response.getResponseCode() == 200) {
+            return response.getContentText();
+        }
+    } catch (e) {
+        console.error('ShortURL Failed:', e);
+    }
+    return longUrl; // 失敗則回傳原網址
 }
 
 /**
@@ -379,6 +554,134 @@ function checkAndReplyNormalMessage(replyToken, userId, userMessage) {
         // 已綁定，暫無回應需求，或可回覆 Echo
         // replyText(replyToken, 'You said: ' + userMessage);
     }
+}
+
+/**
+ * 處理追蹤 (加入好友) 事件 - 發送歡迎訊息
+ */
+function handleFollow(event) {
+    var replyToken = event.replyToken;
+    var userId = event.source.userId;
+    
+    // 取得使用者名稱 (非必要，但有更親切)
+    var userProfile = getUserProfile(userId);
+    var displayName = userProfile ? userProfile.displayName : "新夥伴";
+
+    var welcomeFlexContent = {
+        "type": "bubble",
+        "hero": {
+            "type": "image",
+            "url": "https://img.freepik.com/free-vector/welcome-word-flat-cartoon-people-characters_81522-4207.jpg", 
+            "size": "full",
+            "aspectRatio": "20:13",
+            "aspectMode": "cover",
+            "action": {
+                "type": "uri",
+                "uri": "http://linecorp.com/"
+            }
+        },
+        "body": {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [
+                {
+                    "type": "text",
+                    "text": "歡迎加入 PCM 回報系統",
+                    "weight": "bold",
+                    "size": "xl"
+                },
+                {
+                    "type": "text",
+                    "text": "嗨 " + displayName + "，我是您的專案小幫手！\n請依照下方按鈕開始操作：",
+                    "wrap": true,
+                    "color": "#666666",
+                    "margin": "md"
+                }
+            ]
+        },
+        "footer": {
+            "type": "box",
+            "layout": "vertical",
+            "spacing": "sm",
+            "contents": [
+                {
+                    "type": "button",
+                    "style": "primary",
+                    "height": "sm",
+                    "action": {
+                        "type": "message",
+                        "label": "專案回報",
+                        "text": "專案回報"
+                    },
+                    "color": "#0d6efd"
+                },
+                {
+                    "type": "button",
+                    "style": "secondary",
+                    "height": "sm",
+                    "action": {
+                        "type": "message",
+                        "label": "帳號綁定教學",
+                        "text": "綁定教學"
+                    }
+                },
+                {
+                    "type": "button",
+                    "style": "link",
+                    "height": "sm",
+                    "action": {
+                        "type": "message",
+                        "label": "使用說明",
+                        "text": "使用說明"
+                    }
+                }
+            ],
+            "flex": 0
+        }
+    };
+
+    replyFlex(replyToken, "歡迎加入！請查看功能選單", welcomeFlexContent);
+}
+
+/**
+ * 取得使用者 Profile (取得暱稱用)
+ */
+function getUserProfile(userId) {
+    try {
+        var url = 'https://api.line.me/v2/bot/profile/' + userId;
+        var response = UrlFetchApp.fetch(url, {
+            'headers': {
+                'Authorization': 'Bearer ' + CHANNEL_ACCESS_TOKEN
+            }
+        });
+        return JSON.parse(response.getContentText());
+    } catch (e) {
+        return null;
+    }
+}
+
+/**
+ * 發送 Flex Message
+ */
+function replyFlex(replyToken, altText, contents) {
+    var url = 'https://api.line.me/v2/bot/message/reply';
+    var payload = {
+        'replyToken': replyToken,
+        'messages': [{
+            'type': 'flex',
+            'altText': altText,
+            'contents': contents
+        }]
+    };
+    
+    UrlFetchApp.fetch(url, {
+        'headers': {
+            'Content-Type': 'application/json; charset=UTF-8',
+            'Authorization': 'Bearer ' + CHANNEL_ACCESS_TOKEN
+        },
+        'method': 'post',
+        'payload': JSON.stringify(payload)
+    });
 }
 
 /**

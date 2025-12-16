@@ -211,6 +211,17 @@ body {
     margin-top: 0;
 }
 
+.b-type {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: #95a5a6;
+    /* Default Gray (Progress Report etc) */
+    color: #fff;
+    font-size: 0.85em;
+    margin-right: 5px;
+}
+
 .badge {
     display: inline-block;
     padding: 3px 10px;
@@ -307,12 +318,7 @@ body {
     font-weight: 500;
 }
 
-.b-type {
-    background: #3498db;
-    color: #fff;
-    padding: 2px 8px;
-    border-radius: 4px;
-}
+
 
 .b-type.boss {
     background: #e74c3c;

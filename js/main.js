@@ -512,12 +512,27 @@ function processBulletinData(csvText) {
     const validItems = results.filter(r => r['Content'] || r['內容']);
 
     // Sort descending by Timestamp
+    // Sort Logic: 
+    // 1. Date (Descending) - Prioritize the "Event Date"
+    // 2. Timestamp (Descending) - Then by "Submission Time"
     validItems.sort((a, b) => {
+        // 1. Primary: Date
+        const dateAStr = a['Date'] || a['日期'] || '';
+        const dateBStr = b['Date'] || b['日期'] || '';
+        const dValA = new Date(dateAStr).getTime() || 0;
+        const dValB = new Date(dateBStr).getTime() || 0;
+
+        if (dValB !== dValA) {
+            return dValB - dValA; // Newer date first
+        }
+
+        // 2. Secondary: Timestamp
         const tA = a['Timestamp'] || a['時間戳記'] || '';
         const tB = b['Timestamp'] || b['時間戳記'] || '';
-        const dA = parseGoogleFormsTimestamp(tA);
-        const dB = parseGoogleFormsTimestamp(tB);
-        return dB - dA;
+        const tsA = parseGoogleFormsTimestamp(tA).getTime();
+        const tsB = parseGoogleFormsTimestamp(tB).getTime();
+
+        return tsB - tsA; // Newer submission first
     });
 
     renderBulletinList(validItems);
@@ -538,10 +553,19 @@ function renderBulletinList(items) {
         const dateStr = item['Date'] || item['日期'] || '--/--';
         const author = item['Author'] || item['作者'] || 'Unknown';
         const type = item['Type'] || item['類型'] || '一般';
-        const content = item['Content'] || item['內容'] || '';
+        const itemVal = item['Item'] || item['工項'] || item['Item (Work Item)'] || '';
+        // Fix: Get Category correctly
+        const category = item['Category'] || item['分類'] || '';
+
+        // ...
+
+        let content = item['Content'] || item['內容'] || '';
 
         // Skip if empty content
         if (!content.trim()) return;
+
+        // Content plain (Revert prepend)
+        content = content.replace(/\n/g, '<br>');
 
         const div = document.createElement('div');
         div.className = 'bulletin-item';
@@ -549,11 +573,23 @@ function renderBulletinList(items) {
         const isBoss = (type === '主管訊息' || type === 'Boss');
         const typeClass = isBoss ? 'b-type boss' : 'b-type';
 
+        // Work Item Tag HTML with Colors
+        let itemTagHtml = '';
+        if (itemVal && itemVal.trim()) {
+            let colorClass = 'tag-gray'; // Default
+            if (category.includes('行政')) colorClass = 'tag-admin';
+            else if (category.includes('設計')) colorClass = 'tag-design';
+            else if (category.includes('施工')) colorClass = 'tag-const';
+
+            itemTagHtml = `<span class="b-type b-item-tag ${colorClass}">${itemVal}</span>`;
+        }
+
         div.innerHTML = `
             <div class="b-header">
                 <span class="b-date">${dateStr}</span>
                 <div class="b-tag-group">
                     <span class="${typeClass}">${type}</span>
+                    ${itemTagHtml}
                     <span class="b-author">${author}</span>
                 </div>
             </div>

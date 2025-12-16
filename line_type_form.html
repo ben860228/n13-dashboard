@@ -53,119 +53,132 @@
 
         <div id="errorBlock" class="alert alert-danger d-none"></div>
 
-        <form id="bulletinForm">
-            <input type="hidden" id="lineUserId">
+        <!-- Main Form Block -->
+        <div id="formBlock">
+            <!-- Replaced Form Tag with Div to prevent ANY default submit behavior -->
+            <div id="bulletinForm" class="needs-validation">
 
-            <div class="mb-3">
-                <label>選擇專案</label>
-                <select class="form-select" id="projectSelect" required>
-                    <option selected disabled>讀取中...</option>
-                </select>
+                <!-- Project -->
+                <div class="mb-3">
+                    <label for="projectSelect" class="form-label fw-bold">專案</label>
+                    <select class="form-select" id="projectSelect" required>
+                        <option value="1f8_370qD-bX4j23s-wYc6jE-b27d53">N13-JingYi PCM</option>
+                    </select>
+                </div>
+
+                <!-- Date -->
+                <div class="mb-3">
+                    <label for="dateInput" class="form-label fw-bold">日期</label>
+                    <input type="date" class="form-control" id="dateInput" required>
+                </div>
+
+                <!-- Type -->
+                <div class="mb-3">
+                    <label for="typeSelect" class="form-label fw-bold">類型</label>
+                    <select class="form-select" id="typeSelect" required>
+                        <option value="進度回報" selected>進度回報</option>
+                        <option value="會議記錄">會議記錄</option>
+                        <option value="主管訊息">主管訊息</option>
+                    </select>
+                </div>
+
+                <!-- Category Block -->
+                <div class="mb-3" id="catBlock">
+                    <label for="categorySelect" class="form-label fw-bold">分類 (子分類)</label>
+                    <select class="form-select" id="categorySelect">
+                        <option value="行政" selected>行政</option>
+                        <option value="設計">設計</option>
+                        <option value="施工">施工</option>
+                    </select>
+                </div>
+
+                <!-- Task Block -->
+                <div class="mb-3" id="taskBlock">
+                    <label for="taskSelect" class="form-label fw-bold">工作項目</label>
+                    <!-- Default select, will be replaced by script if loading fails or loaded -->
+                    <select class="form-select" id="taskSelect">
+                        <option value="" disabled selected>讀取中...</option>
+                    </select>
+                    <div class="form-text text-muted" id="taskHint">
+                        若無對應工項可選「其他」或手動輸入
+                    </div>
+                </div>
+
+
+                <!-- Content -->
+                <div class="mb-4">
+                    <label for="contentInput" class="form-label fw-bold">內容</label>
+                    <textarea class="form-control" id="contentInput" rows="5" required
+                        placeholder="請輸入回報內容..."></textarea>
+                </div>
+
+                <!-- User ID Hidden -->
+                <input type="hidden" id="lineUserId" name="lineUserId">
+
+                <!-- Helper text -->
+                <div class="mb-3 text-center">
+                    <small class="text-muted" id="status-bar">準備就緒</small>
+                </div>
+
+                <!-- Submit Btn -->
+                <div class="d-grid gap-2">
+                    <button type="button" id="submitBtn" class="btn btn-primary btn-lg fw-bold shadow-sm">
+                        發佈
+                    </button>
+                </div>
             </div>
-
-            <div class="mb-3">
-                <label>日期</label>
-                <input type="date" class="form-control" id="dateInput" required>
-            </div>
-
-            <div class="mb-3">
-                <label>類型</label>
-                <select class="form-select" id="typeSelect" required>
-                    <option value="進度回報">進度回報</option>
-                    <option value="會議記錄">會議記錄</option>
-                </select>
-            </div>
-
-            <div class="mb-3" id="categoryBlock">
-                <label>子分類</label>
-                <select class="form-select" id="categorySelect">
-                    <option value="行政" selected>行政</option>
-                    <option value="設計">設計</option>
-                    <option value="施工">施工</option>
-                </select>
-            </div>
-
-            <div class="mb-3">
-                <label>內容</label>
-                <textarea class="form-control" id="contentInput" rows="5" required></textarea>
-            </div>
-
-            <button type="submit" class="btn btn-primary" id="submitBtn" disabled>發佈</button>
-        </form>
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <!-- Add PapaParse for reliable CSV parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
     <script>
-        const LIFF_ID = "2008698380-xwXH3g1t";
+        // Global Error Handler
+        window.onerror = function (msg, url, line, col, error) {
+            alert("腳本錯誤: " + msg + "\nLine: " + line);
+            return false;
+        };
 
-        // 🟢 關鍵：這裡直接由後端注入 ID，不再依賴網址參數
-        // 如果後端沒傳，這裡會變成空字串
+        const LIFF_ID = "2008698380-xwXH3g1t";
         const MAGIC_UID = "<?= serverUid ?>";
+        // Public CSV Link (Matches Dashboard)
+        const TASKS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQiyY2STxHEAcJIa_wBeLHRYpGj82dozn-1tCo_ZhltPo-CABMaWOD88K7LLJnXTtW_3IV-k2qZq8HV/pub?gid=0&single=true&output=csv";
+
+        // Global Tasks Storage
+        let g_allTasks = [];
+
+        // 更粗暴直接的環境判斷 (不依賴 LIFF init)
+        const isLineClient = navigator.userAgent.includes('Line') || navigator.userAgent.includes('LINB');
 
         document.addEventListener("DOMContentLoaded", function () {
-            document.getElementById('dateInput').valueAsDate = new Date();
+            try {
+                document.getElementById('dateInput').valueAsDate = new Date();
 
-            if (MAGIC_UID && MAGIC_UID.trim() !== "") {
-                // ✅ 後端直接給了 ID！不用囉嗦，直接登入
-                // 完全不呼叫 liff.init，避開無限轉圈
-                updateStatus("🟢 使用專屬連結登入 (Direct)");
-                fetchConfig(MAGIC_UID);
-            } else {
-                // ❌ 沒有 ID，才嘗試用 LIFF (備案)
-                // 只有這種情況才去碰 LIFF
-                updateStatus("🟠 無參數，嘗試 LIFF 連線...");
-                tryLiffLogin();
+                // Init UI Logic Immediately
+                setupFormLogic();
+                // alert("系統載入完成，按鈕監聽已啟動"); // Debug Alert
+
+                if (MAGIC_UID && MAGIC_UID.trim() !== "") {
+                    updateStatus("🟢 使用專屬連結登入");
+                    fetchConfig(MAGIC_UID);
+                    initLiffSilently();
+                } else {
+                    updateStatus("🟠 無參數，嘗試 LIFF 連線...");
+                    tryLiffLogin();
+                }
+            } catch (e) {
+                alert("初始化錯誤: " + e.message);
             }
         });
 
-        function fetchConfig(userId) {
-            document.getElementById('lineUserId').value = userId;
-
-            google.script.run
-                .withSuccessHandler(onConfigLoaded)
-                .withFailureHandler(onFailure)
-                .getLiffConfig(userId);
-        }
-
-        function onConfigLoaded(config) {
-            if (config.error || !config.success) {
-                showError(config.message || "身分驗證失敗，請確認綁定狀態");
-                return;
+        // 默默初始化 LIFF 且不執行登入 (只為了拿功能)
+        function initLiffSilently() {
+            if (typeof liff !== 'undefined') {
+                liff.init({ liffId: LIFF_ID }).catch(err => console.log('Silent Init Error', err));
             }
-
-            // 解鎖介面
-            document.getElementById('submitBtn').disabled = false;
-            document.getElementById('userInfoBlock').classList.remove('alert-secondary');
-            document.getElementById('userInfoBlock').classList.add('alert-info');
-            document.getElementById('userNameDisplay').innerText = `你好，${config.userName}`;
-
-            // 填入選單
-            const pSelect = document.getElementById('projectSelect');
-            pSelect.innerHTML = "";
-
-            if (config.projects && config.projects.length > 0) {
-                config.projects.forEach(p => {
-                    let opt = document.createElement("option");
-                    opt.text = p.name;
-                    opt.value = p.id;
-                    pSelect.add(opt);
-                });
-            } else {
-                pSelect.add(new Option("無可用專案", ""));
-            }
-
-            // 主管權限
-            if (config.isBoss) {
-                const typeSelect = document.getElementById('typeSelect');
-                let exists = Array.from(typeSelect.options).some(o => o.value === '主管訊息');
-                if (!exists) {
-                    typeSelect.add(new Option("主管訊息", "主管訊息"));
-                }
-            }
-
-            setupFormLogic();
         }
 
         function tryLiffLogin() {
@@ -184,6 +197,297 @@
             }
         }
 
+        function fetchConfig(userId) {
+            document.getElementById('lineUserId').value = userId;
+            google.script.run
+                .withSuccessHandler(onConfigLoaded)
+                .withFailureHandler(onFailure)
+                .getLiffConfig(userId);
+        }
+
+        function onConfigLoaded(config) {
+            if (config.error || !config.success) {
+                showError(config.message || "身分驗證失敗，請確認綁定狀態");
+                return;
+            }
+
+            // Update UI with User Info
+            document.getElementById('userInfoBlock').classList.remove('alert-secondary');
+            document.getElementById('userInfoBlock').classList.add('alert-info');
+            document.getElementById('userNameDisplay').innerText = `你好，${config.userName}`;
+
+            // Fill Project Select
+            const pSelect = document.getElementById('projectSelect');
+            pSelect.innerHTML = "";
+            let firstProjectId = "";
+
+            if (config.projects && config.projects.length > 0) {
+                config.projects.forEach((p, idx) => {
+                    let opt = document.createElement("option");
+                    opt.text = p.name;
+                    opt.value = p.id;
+                    pSelect.add(opt);
+                    if (idx === 0) firstProjectId = p.id;
+                });
+
+                // Load tasks for the first project initially
+                if (firstProjectId) loadProjectTasks(firstProjectId);
+
+                // Add change listener
+                pSelect.addEventListener('change', function () {
+                    loadProjectTasks(this.value);
+                });
+
+            } else {
+                pSelect.add(new Option("無可用專案", ""));
+            }
+
+            if (config.isBoss) {
+                const typeSelect = document.getElementById('typeSelect');
+                let exists = Array.from(typeSelect.options).some(o => o.value === '主管訊息');
+                if (!exists) typeSelect.add(new Option("主管訊息", "主管訊息"));
+            }
+
+            // Note: setupFormLogic is now called at startup, so we don't call it here.
+        }
+
+        function loadProjectTasks(projectId) {
+            const tSelect = document.getElementById('taskSelect');
+            const taskBlock = document.getElementById('taskBlock');
+
+            // UI Reset
+            tSelect.innerHTML = '<option disabled selected>讀取工項中 (嘗試 Back/Front 並行)...</option>';
+            // Reset to Select Mode (in case it was Input Mode)
+            if (tSelect.tagName === 'INPUT') {
+                // Replace Input back to Select
+                const newSelect = document.createElement('select');
+                newSelect.id = 'taskSelect';
+                newSelect.className = 'form-select';
+                tSelect.parentNode.replaceChild(newSelect, tSelect);
+                // Need to re-get reference
+            }
+
+            const currentType = document.getElementById('typeSelect').value;
+            if (currentType === '進度回報') {
+                taskBlock.classList.remove('d-none');
+            }
+
+            // Flag to prevent double execution
+            let isResolved = false;
+
+            // 1. Fallback Timer (4 seconds)
+            // If nothing works, show manual input
+            const fallbackTimer = setTimeout(() => {
+                if (!isResolved) {
+                    isResolved = true;
+                    // Switch to Input
+                    const tContainer = document.getElementById('taskSelect').parentNode;
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.id = 'taskSelect'; // Keep ID for submit logic compatibility
+                    input.className = 'form-control';
+                    input.placeholder = '讀取逾時，請直接輸入工項名稱...';
+
+                    const oldEl = document.getElementById('taskSelect');
+                    tContainer.replaceChild(input, oldEl);
+                    alert("讀取過久，已切換為手動輸入模式。");
+                }
+            }, 4000);
+
+            // 2. Try Backend Load (Google Script Run)
+            // Reverting to Backend because Frontend fetch might be blocked by LIFF CSP
+            try {
+                if (typeof google !== 'undefined' && google.script) {
+                    google.script.run
+                        .withSuccessHandler(rawResult => {
+                            if (isResolved) return; // Too late
+
+                            let result;
+                            try {
+                                result = JSON.parse(rawResult);
+                            } catch (e) { console.error(e); }
+
+                            if (!result || !result.success || !result.tasks) {
+                                console.warn("Backend load empty", result);
+                                // Try CSV Fallback if backend returns nothing useful?
+                                loadTasksFromCSV(tSelect, fallbackTimer);
+                                return;
+                            }
+
+                            // Success!
+                            isResolved = true;
+                            clearTimeout(fallbackTimer);
+                            g_allTasks = result.tasks.map(t => ({
+                                name: t.name,
+                                category: t.category,
+                                pStart: t.planStart ? new Date(t.planStart) : null,
+                                pEnd: t.planEnd ? new Date(t.planEnd) : null,
+                                aStart: t.actStart ? new Date(t.actStart) : null,
+                                aEnd: t.actEnd ? new Date(t.actEnd) : null
+                            }));
+                            renderTaskOptions();
+                        })
+                        .withFailureHandler(err => {
+                            console.error("Backend failed", err);
+                            // Immediately try CSV
+                            loadTasksFromCSV(tSelect, fallbackTimer);
+                        })
+                        .getProjectTasks(projectId);
+                } else {
+                    throw new Error("Local Environment");
+                }
+            } catch (e) {
+                console.warn("Google Script API missing, switching to CSV Fallback immediately.");
+                loadTasksFromCSV(tSelect, fallbackTimer);
+            }
+        }
+
+        function loadTasksFromCSV(tSelect, fallbackTimer) {
+            Papa.parse(TASKS_CSV_URL, {
+                download: true,
+                header: true,
+                skipEmptyLines: true,
+                complete: function (results) {
+                    // Check if already resolved by backend
+                    if (isResolved) return;
+                    isResolved = true;
+                    clearTimeout(fallbackTimer);
+
+                    const rows = results.data;
+                    g_allTasks = []; // Global Storage
+
+                    if (!rows || rows.length === 0) {
+                        tSelect.innerHTML = '<option disabled>查無數據</option>';
+                        return;
+                    }
+
+                    rows.forEach(r => {
+                        const name = r['任務名稱'] || r['TaskName'] || r['Name'];
+                        if (!name) return;
+
+                        const category = r['分類'] || r['Category'] || '';
+                        const planStartStr = r['開始時間'] || r['Start'];
+                        const planEndStr = r['結束日期'] || r['End'];
+                        const actStartStr = r['實際開始時間'] || r['ActualStart'];
+                        const actEndStr = r['實際完成時間'] || r['ActualEnd'];
+
+                        // Simple Date Parse
+                        const pStart = planStartStr ? new Date(planStartStr) : null;
+                        const pEnd = planEndStr ? new Date(planEndStr) : null;
+                        const aStart = actStartStr ? new Date(actStartStr) : null;
+                        const aEnd = actEndStr ? new Date(actEndStr) : null;
+
+                        g_allTasks.push({ name, category, pStart, pEnd, aStart, aEnd });
+                    });
+
+                    // Initial Render
+                    renderTaskOptions();
+                },
+                error: function (err) {
+                    console.error(err);
+                    tSelect.innerHTML = '<option disabled>讀取失敗</option>';
+                    alert("CSV 讀取失敗: " + (err.message || err));
+                }
+            });
+        }
+
+        // Renamed and modified from populateTaskSelect to be the main renderer
+        function renderTaskOptions() {
+            const tSelect = document.getElementById('taskSelect');
+            if (!tSelect || tSelect.tagName !== 'SELECT') return; // Should be select
+
+            // Get Current Filtering Category
+            const catSelect = document.getElementById('categorySelect');
+            const selectedCat = catSelect ? catSelect.value : '';
+
+            // Filter tasks based on selected category
+            let filteredTasks = g_allTasks;
+            if (selectedCat) {
+                filteredTasks = g_allTasks.filter(t => t.category === selectedCat);
+            }
+
+            tSelect.innerHTML = '<option value="">狀態回報 (無特定工項)</option>';
+
+            if (filteredTasks.length === 0) {
+                if (g_allTasks.length > 0) {
+                    let opt = document.createElement("option");
+                    opt.disabled = true;
+                    opt.text = "(此分類下無工項)";
+                    tSelect.add(opt);
+                } else {
+                    tSelect.innerHTML = '<option disabled>載入中...</option>';
+                }
+                return;
+            }
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const groupOverdue = [];
+            const groupOngoing = [];
+            const groupUpcoming = [];
+            const groupDone = [];
+            const groupOthers = [];
+
+            filteredTasks.forEach(t => {
+                const { name, pStart, pEnd, aStart, aEnd } = t;
+
+                // Dashboard Logic for Status
+                // Done
+                if (aEnd) {
+                    groupDone.push(t);
+                    return;
+                }
+
+                // Overdue (Delayed):
+                // 1. PlanEnd passed AND Not Done
+                // 2. PlanStart passed AND Not Started
+                const isLateFinish = pEnd && today > pEnd;
+                const isLateStart = pStart && today > pStart && !aStart;
+
+                if (isLateFinish || isLateStart) {
+                    groupOverdue.push(t);
+                    return;
+                }
+
+                // Ongoing (Normal):
+                // Started AND Not Done (and not late finish, covered above)
+                if (aStart && !aEnd) {
+                    groupOngoing.push(t);
+                    return;
+                }
+
+                // Upcoming:
+                // PlanStart is in future
+                if (pStart && pStart > today) {
+                    groupUpcoming.push(t);
+                    return;
+                }
+
+                // Others
+                groupOthers.push(t);
+            });
+
+            const appendGroup = (label, list) => {
+                if (list.length === 0) return;
+                const grp = document.createElement('optgroup');
+                grp.label = label;
+                list.forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t.name;
+                    opt.text = t.name;
+                    grp.appendChild(opt);
+                });
+                tSelect.appendChild(grp);
+            };
+
+            appendGroup("🔴 🔴 異常 / 逾期", groupOverdue); // Emphasize
+            appendGroup("🔵 進行中", groupOngoing);
+            appendGroup("🟡 即將開始", groupUpcoming);
+            appendGroup("🟢 已完成", groupDone);
+            appendGroup("⚪ 其他", groupOthers);
+        }
+
         function updateStatus(msg) {
             document.getElementById('status-bar').innerText = msg;
         }
@@ -199,44 +503,167 @@
             showError("系統錯誤: " + e.message);
         }
 
-        // --- 表單邏輯 ---
+        function closeAppWindow() {
+            const btn = document.getElementById('btn-close');
+            if (btn) btn.innerText = "關閉中...";
+
+            // 嘗試所有關閉方法
+            if (typeof liff !== 'undefined' && liff.isInClient()) {
+                liff.closeWindow();
+            } else {
+                window.close();
+            }
+        }
+
+        // ...
+
         function setupFormLogic() {
             const typeSelect = document.getElementById('typeSelect');
-            const catBlock = document.getElementById('categoryBlock');
+            const catBlock = document.getElementById('categoryBlock'); // Wait, check ID
+            const taskBlock = document.getElementById('taskBlock');
 
-            let newSelect = typeSelect.cloneNode(true);
-            typeSelect.parentNode.replaceChild(newSelect, typeSelect);
-            newSelect.addEventListener('change', function () {
-                this.value === '進度回報' ? catBlock.classList.remove('d-none') : catBlock.classList.add('d-none');
+            // Handle Type Change
+            const newTypeSelect = typeSelect.cloneNode(true);
+            typeSelect.parentNode.replaceChild(newTypeSelect, typeSelect);
+
+            newTypeSelect.addEventListener('change', function () {
+                // Must re-get elements inside closure or use IDs
+                const cb = document.getElementById('catBlock'); // ID Changed to catBlock in previous HTML update
+                const tb = document.getElementById('taskBlock');
+
+                if (this.value === '進度回報') {
+                    if (cb) cb.classList.remove('d-none');
+                    if (tb) tb.classList.remove('d-none');
+                    renderTaskOptions();
+                } else {
+                    if (cb) cb.classList.add('d-none');
+                    if (tb) tb.classList.add('d-none');
+                }
             });
 
-            const form = document.getElementById('bulletinForm');
-            let newForm = form.cloneNode(true);
-            form.parentNode.replaceChild(newForm, form);
-            newForm.addEventListener('submit', function (e) {
-                e.preventDefault();
-                const btn = document.getElementById('submitBtn');
-                btn.disabled = true; btn.innerText = "發佈中...";
+            // Bind Category Change
+            const catSelect = document.getElementById('categorySelect');
+            if (catSelect) {
+                const newCatSelect = catSelect.cloneNode(true);
+                catSelect.parentNode.replaceChild(newCatSelect, catSelect);
+                newCatSelect.addEventListener('change', function () {
+                    renderTaskOptions();
+                });
+            }
 
-                const data = {
-                    projectId: document.getElementById('projectSelect').value,
-                    date: document.getElementById('dateInput').value,
-                    type: document.getElementById('typeSelect').value,
-                    category: document.getElementById('categorySelect').value,
-                    content: document.getElementById('contentInput').value,
-                    lineUserId: document.getElementById('lineUserId').value
-                };
-                if (data.type !== '進度回報') data.category = '';
+            // Bind Click to Button directly (No Clone)
+            const btn = document.getElementById('submitBtn');
+            btn.onclick = function () {
+                // Debug Flash
+                updateStatus("🚀 發佈啟動中...");
 
-                google.script.run.withSuccessHandler(res => {
-                    alert(res);
-                    if (liff.isInClient()) liff.closeWindow();
+                // 0. Auth Check
+                const uid = document.getElementById('lineUserId').value;
+                if (!uid) {
+                    alert("身分尚未驗證，請等待綠條或橘條出現...");
+                    return;
+                }
+
+                // 1. Content Check
+                const contentInput = document.getElementById('contentInput');
+                if (!contentInput.value.trim()) {
+                    alert('請輸入內容');
+                    contentInput.focus();
+                    return;
+                }
+
+                // 2. Disable Button Immediately
+                btn.disabled = true;
+                btn.innerText = "發佈中...";
+
+                try {
+                    let contentVal = document.getElementById('contentInput').value;
+                    const taskVal = document.getElementById('taskSelect').value;
+
+                    const data = {
+                        projectId: document.getElementById('projectSelect').value,
+                        date: document.getElementById('dateInput').value,
+                        type: document.getElementById('typeSelect').value,
+                        category: document.getElementById('categorySelect').value,
+                        item: taskVal || '',
+                        content: contentVal,
+                        lineUserId: uid // Use validated UID
+                    };
+
+                    // Clean data
+                    if (data.type !== '進度回報') {
+                        data.category = '';
+                        data.item = '';
+                    }
+
+                    if (typeof google === 'undefined' || !google.script) {
+                        throw new Error("Google Script API not loaded.");
+                    }
+
+                    google.script.run
+                        .withSuccessHandler(res => {
+                            console.log("Success:", res);
+                            // UI Update
+                            const formContainer = document.getElementById('formBlock');
+                            const userInfoBlock = document.getElementById('userInfoBlock');
+                            const statusBar = document.getElementById('status-bar');
+
+                            formContainer.classList.add('d-none');
+                            userInfoBlock.classList.add('d-none');
+                            if (statusBar) statusBar.style.display = 'none';
+
+                            let successDiv = document.getElementById('success-message-div');
+                            if (successDiv) successDiv.remove();
+
+                            successDiv = document.createElement('div');
+                            successDiv.id = 'success-message-div';
+                            successDiv.className = 'text-center mt-5 p-4';
+
+                            successDiv.innerHTML = `
+                               <div class="mb-4" style="font-size: 80px;">✅</div>
+                               <h2 class="text-white mb-4 fw-bold">${res || '發佈成功'}</h2>
+                               <p class="text-secondary mb-5 fs-5">資料已成功寫入資料庫</p>
+                               
+                               <div class="d-grid gap-3 col-10 mx-auto">
+                                   <button id="btn-reload" class="btn btn-outline-light btn-lg">再次回報</button>
+                               </div>
+                               
+                               <div class="mt-4 text-muted small">
+                                    (請直接點擊右上角 X 關閉視窗)
+                               </div>
+                           `;
+                            document.querySelector('.container').appendChild(successDiv);
+
+                            document.getElementById('btn-reload').addEventListener('click', function () {
+                                successDiv.remove();
+                                formContainer.classList.remove('d-none');
+                                userInfoBlock.classList.remove('d-none');
+                                if (statusBar) statusBar.style.display = 'block';
+                                document.getElementById('contentInput').value = '';
+                                document.getElementById('dateInput').valueAsDate = new Date();
+                                btn.disabled = false; btn.innerText = "發佈";
+                            });
+
+                            if (isLineClient) {
+                                setTimeout(closeAppWindow, 3000);
+                            }
+                        })
+                        .withFailureHandler(err => {
+                            console.error("Failure Handler:", err);
+                            alert("發佈失敗 (後端拒絕)：\n" + (err.message || err));
+                            btn.disabled = false; btn.innerText = "發佈";
+                        })
+                        .submitBulletin(data);
+
+                } catch (ex) {
+                    console.error("JS Error:", ex);
+                    alert("發佈程序錯誤 (前端)：\n" + ex.message);
                     btn.disabled = false; btn.innerText = "發佈";
-                }).withFailureHandler(err => {
-                    alert("發佈失敗: " + err.message);
-                    btn.disabled = false; btn.innerText = "發佈";
-                }).submitBulletin(data);
-            });
+                }
+            };
+
+            // Init state for type Select (Trigger change to hide/show blocks)
+            newTypeSelect.dispatchEvent(new Event('change'));
         }
     </script>
 </body>
