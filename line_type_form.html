@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <base target="_top">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PCM 回報系統</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #212529;
+            color: #f8f9fa;
+            padding-bottom: 50px;
+        }
+
+        .form-control,
+        .form-select {
+            background-color: #2c3034;
+            border-color: #495057;
+            color: #fff;
+        }
+
+        .btn-primary {
+            width: 100%;
+            padding: 12px;
+            font-weight: bold;
+        }
+
+        .container {
+            margin-top: 20px;
+        }
+
+        #status-bar {
+            font-size: 12px;
+            color: #aaa;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <div id="status-bar">系統載入中...</div>
+
+        <h3 class="mb-4 text-center">📋 專案回報</h3>
+
+        <div id="userInfoBlock" class="alert alert-secondary">
+            <span id="userNameDisplay">驗證身分中...</span>
+        </div>
+
+        <div id="errorBlock" class="alert alert-danger d-none"></div>
+
+        <form id="bulletinForm">
+            <input type="hidden" id="lineUserId">
+
+            <div class="mb-3">
+                <label>選擇專案</label>
+                <select class="form-select" id="projectSelect" required>
+                    <option selected disabled>讀取中...</option>
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label>日期</label>
+                <input type="date" class="form-control" id="dateInput" required>
+            </div>
+
+            <div class="mb-3">
+                <label>類型</label>
+                <select class="form-select" id="typeSelect" required>
+                    <option value="進度回報">進度回報</option>
+                    <option value="會議記錄">會議記錄</option>
+                </select>
+            </div>
+
+            <div class="mb-3" id="categoryBlock">
+                <label>子分類</label>
+                <select class="form-select" id="categorySelect">
+                    <option value="行政" selected>行政</option>
+                    <option value="設計">設計</option>
+                    <option value="施工">施工</option>
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label>內容</label>
+                <textarea class="form-control" id="contentInput" rows="5" required></textarea>
+            </div>
+
+            <button type="submit" class="btn btn-primary" id="submitBtn" disabled>發佈</button>
+        </form>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+    <script>
+        const LIFF_ID = "2008698380-xwXH3g1t";
+
+        // 🟢 關鍵：這裡直接由後端注入 ID，不再依賴網址參數
+        // 如果後端沒傳，這裡會變成空字串
+        const MAGIC_UID = "<?= serverUid ?>";
+
+        document.addEventListener("DOMContentLoaded", function () {
+            document.getElementById('dateInput').valueAsDate = new Date();
+
+            if (MAGIC_UID && MAGIC_UID.trim() !== "") {
+                // ✅ 後端直接給了 ID！不用囉嗦，直接登入
+                // 完全不呼叫 liff.init，避開無限轉圈
+                updateStatus("🟢 使用專屬連結登入 (Direct)");
+                fetchConfig(MAGIC_UID);
+            } else {
+                // ❌ 沒有 ID，才嘗試用 LIFF (備案)
+                // 只有這種情況才去碰 LIFF
+                updateStatus("🟠 無參數，嘗試 LIFF 連線...");
+                tryLiffLogin();
+            }
+        });
+
+        function fetchConfig(userId) {
+            document.getElementById('lineUserId').value = userId;
+
+            google.script.run
+                .withSuccessHandler(onConfigLoaded)
+                .withFailureHandler(onFailure)
+                .getLiffConfig(userId);
+        }
+
+        function onConfigLoaded(config) {
+            if (config.error || !config.success) {
+                showError(config.message || "身分驗證失敗，請確認綁定狀態");
+                return;
+            }
+
+            // 解鎖介面
+            document.getElementById('submitBtn').disabled = false;
+            document.getElementById('userInfoBlock').classList.remove('alert-secondary');
+            document.getElementById('userInfoBlock').classList.add('alert-info');
+            document.getElementById('userNameDisplay').innerText = `你好，${config.userName}`;
+
+            // 填入選單
+            const pSelect = document.getElementById('projectSelect');
+            pSelect.innerHTML = "";
+
+            if (config.projects && config.projects.length > 0) {
+                config.projects.forEach(p => {
+                    let opt = document.createElement("option");
+                    opt.text = p.name;
+                    opt.value = p.id;
+                    pSelect.add(opt);
+                });
+            } else {
+                pSelect.add(new Option("無可用專案", ""));
+            }
+
+            // 主管權限
+            if (config.isBoss) {
+                const typeSelect = document.getElementById('typeSelect');
+                let exists = Array.from(typeSelect.options).some(o => o.value === '主管訊息');
+                if (!exists) {
+                    typeSelect.add(new Option("主管訊息", "主管訊息"));
+                }
+            }
+
+            setupFormLogic();
+        }
+
+        function tryLiffLogin() {
+            if (typeof liff !== 'undefined') {
+                liff.init({ liffId: LIFF_ID }).then(() => {
+                    if (!liff.isLoggedIn()) {
+                        liff.login();
+                    } else {
+                        liff.getProfile().then(profile => {
+                            fetchConfig(profile.userId);
+                        });
+                    }
+                }).catch(err => {
+                    showError("無法識別身分。請在 LINE 聊天室輸入「回報」來取得專屬連結。");
+                });
+            }
+        }
+
+        function updateStatus(msg) {
+            document.getElementById('status-bar').innerText = msg;
+        }
+
+        function showError(msg) {
+            const block = document.getElementById('errorBlock');
+            block.innerText = msg;
+            block.classList.remove('d-none');
+            document.getElementById('userInfoBlock').classList.add('d-none');
+        }
+
+        function onFailure(e) {
+            showError("系統錯誤: " + e.message);
+        }
+
+        // --- 表單邏輯 ---
+        function setupFormLogic() {
+            const typeSelect = document.getElementById('typeSelect');
+            const catBlock = document.getElementById('categoryBlock');
+
+            let newSelect = typeSelect.cloneNode(true);
+            typeSelect.parentNode.replaceChild(newSelect, typeSelect);
+            newSelect.addEventListener('change', function () {
+                this.value === '進度回報' ? catBlock.classList.remove('d-none') : catBlock.classList.add('d-none');
+            });
+
+            const form = document.getElementById('bulletinForm');
+            let newForm = form.cloneNode(true);
+            form.parentNode.replaceChild(newForm, form);
+            newForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+                const btn = document.getElementById('submitBtn');
+                btn.disabled = true; btn.innerText = "發佈中...";
+
+                const data = {
+                    projectId: document.getElementById('projectSelect').value,
+                    date: document.getElementById('dateInput').value,
+                    type: document.getElementById('typeSelect').value,
+                    category: document.getElementById('categorySelect').value,
+                    content: document.getElementById('contentInput').value,
+                    lineUserId: document.getElementById('lineUserId').value
+                };
+                if (data.type !== '進度回報') data.category = '';
+
+                google.script.run.withSuccessHandler(res => {
+                    alert(res);
+                    if (liff.isInClient()) liff.closeWindow();
+                    btn.disabled = false; btn.innerText = "發佈";
+                }).withFailureHandler(err => {
+                    alert("發佈失敗: " + err.message);
+                    btn.disabled = false; btn.innerText = "發佈";
+                }).submitBulletin(data);
+            });
+        }
+    </script>
+</body>
+
+</html>
