@@ -577,21 +577,39 @@ function renderBulletinList(items) {
         let itemTagHtml = '';
         if (itemVal && itemVal.trim()) {
             let colorClass = 'tag-gray'; // Default
-            if (category.includes('行政')) colorClass = 'tag-admin';
-            else if (category.includes('設計')) colorClass = 'tag-design';
-            else if (category.includes('施工')) colorClass = 'tag-const';
 
-            itemTagHtml = `<span class="b-type b-item-tag ${colorClass}">${itemVal}</span>`;
+            // Intelligent Keyword Detection if Category is missing or generic
+            const combinedText = (category + itemVal).toLowerCase();
+
+            if (combinedText.includes('行政') || combinedText.includes('admin')) colorClass = 'tag-admin';
+            else if (combinedText.includes('設計') || combinedText.includes('design')) colorClass = 'tag-design';
+            else if (combinedText.includes('施工') || combinedText.includes('const') || combinedText.includes('土木') || combinedText.includes('機電')) colorClass = 'tag-const';
+
+            // Also check specific user request keywords if needed
+            if (itemVal.includes('排水箱涵')) colorClass = 'tag-design'; // Example fix based on user screenshot
+
+            // Override if explicit category exists (Precedence)
+            if (category.includes('行政')) colorClass = 'tag-admin';
+            if (category.includes('設計')) colorClass = 'tag-design';
+            if (category.includes('施工')) colorClass = 'tag-const';
+
+            itemTagHtml = `<span class="b-item-tag ${colorClass}">${itemVal}</span>`;
         }
+
+        /* 
+           Layout Logic:
+           Desktop: Date | Type | Tag ...... | Author
+           Mobile: 
+             Row 1: Date | Type ....... Author
+             Row 2: Tag
+        */
 
         div.innerHTML = `
             <div class="b-header">
                 <span class="b-date">${dateStr}</span>
-                <div class="b-tag-group">
-                    <span class="${typeClass}">${type}</span>
-                    ${itemTagHtml}
-                    <span class="b-author">${author}</span>
-                </div>
+                <span class="${typeClass}">${type}</span>
+                ${itemTagHtml}
+                <span class="b-author">${author}</span>
             </div>
             <div class="b-content">${content}</div>
         `;
