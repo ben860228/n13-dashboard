@@ -62,7 +62,7 @@
                 <div class="mb-3">
                     <label for="projectSelect" class="form-label fw-bold">專案</label>
                     <select class="form-select" id="projectSelect" required>
-                        <option value="1f8_370qD-bX4j23s-wYc6jE-b27d53">N13-JingYi PCM</option>
+                        <option value="" disabled selected>讀取專案中...</option>
                     </select>
                 </div>
 
@@ -78,7 +78,6 @@
                     <select class="form-select" id="typeSelect" required>
                         <option value="進度回報" selected>進度回報</option>
                         <option value="會議記錄">會議記錄</option>
-                        <option value="主管訊息">主管訊息</option>
                     </select>
                 </div>
 
@@ -256,7 +255,7 @@
             const taskBlock = document.getElementById('taskBlock');
 
             // UI Reset
-            tSelect.innerHTML = '<option disabled selected>讀取工項中 (嘗試 Back/Front 並行)...</option>';
+            tSelect.innerHTML = '<option disabled selected>努力讀取中 (約需 10 秒)...</option>';
             // Reset to Select Mode (in case it was Input Mode)
             if (tSelect.tagName === 'INPUT') {
                 // Replace Input back to Select
@@ -275,7 +274,7 @@
             // Flag to prevent double execution
             let isResolved = false;
 
-            // 1. Fallback Timer (4 seconds)
+            // 1. Fallback Timer (15 seconds)
             // If nothing works, show manual input
             const fallbackTimer = setTimeout(() => {
                 if (!isResolved) {
@@ -292,7 +291,7 @@
                     tContainer.replaceChild(input, oldEl);
                     alert("讀取過久，已切換為手動輸入模式。");
                 }
-            }, 4000);
+            }, 15000); // Extended to 15s by user request
 
             // 2. Try Backend Load (Google Script Run)
             // Reverting to Backend because Frontend fetch might be blocked by LIFF CSP

@@ -298,7 +298,7 @@ function handleMessage(event) {
                         "type": "box", "layout": "vertical", "margin": "md", "spacing": "sm",
                         "contents": [
                             {
-                                "type": "button", "style": "secondary", "height": "sm", "action": { "type": "message", "label": "📢 專案回報", "text": "專案回報" }
+                                "type": "button", "style": "primary", "height": "sm", "color": "#6c757d", "action": { "type": "message", "label": "📢 專案回報", "text": "專案回報" }
                             },
                             {
                                 "type": "button", "style": "secondary", "height": "sm", "action": { "type": "message", "label": "🔗 帳號綁定", "text": "帳號綁定" }
@@ -334,7 +334,7 @@ function handleMessage(event) {
 
     // 3. 使用教學
     if (userMessage === '使用教學' || userMessage === '使用說明') {
-        replyText(replyToken, "【使用說明】\n🔹 如果尚未綁定：請先點擊「帳號綁定」驗證身分 (已綁定過則無需重複操作)。\n🔹 點擊「進入平台」：查看完整的專案儀表板。\n🔹 點擊「專案回報」：填寫施工進度或會議記錄 (主管可填寫指令)。");
+        replyText(replyToken, "【使用說明】\n🔹 如果尚未綁定：請先點擊「帳號綁定」驗證身分 (已綁定過則無需重複操作)。\n🔹 點擊「專案回報」：填寫施工進度或會議記錄 (主管可填寫指令)。\n🔹 點擊「開啟儀表板」：查看完整的專案儀表板。\n🔹 電腦版用戶可隨時輸入「選單」來召喚選單。");
         return;
     }
 
@@ -426,7 +426,7 @@ function generateMagicLink(replyToken, userId) {
     }
 
     if (!isBound) {
-        replyText(replyToken, '您尚未綁定員工資料，請先輸入「綁定 [帳號]」來開通權限。');
+        replyText(replyToken, '您尚未綁定員工資料，請先進行帳號綁定來開通權限。');
         return;
     }
 
@@ -586,13 +586,13 @@ function handleFollow(event) {
             "contents": [
                 {
                     "type": "text",
-                    "text": "歡迎加入 PCM 回報系統",
+                    "text": "歡迎加入經一 PCM 系統",
                     "weight": "bold",
                     "size": "xl"
                 },
                 {
                     "type": "text",
-                    "text": "嗨 " + displayName + "，我是您的專案小幫手！\n請依照下方按鈕開始操作：",
+                    "text": "嗨 " + displayName + "，我是您的專案小幫手！\n請使用下方選單開始操作：",
                     "wrap": true,
                     "color": "#666666",
                     "margin": "md"
@@ -608,12 +608,12 @@ function handleFollow(event) {
                     "type": "button",
                     "style": "primary",
                     "height": "sm",
+                    "color": "#6c757d",
                     "action": {
                         "type": "message",
                         "label": "專案回報",
                         "text": "專案回報"
-                    },
-                    "color": "#0d6efd"
+                    }
                 },
                 {
                     "type": "button",
@@ -621,19 +621,38 @@ function handleFollow(event) {
                     "height": "sm",
                     "action": {
                         "type": "message",
-                        "label": "帳號綁定教學",
-                        "text": "綁定教學"
+                        "label": "帳號綁定",
+                        "text": "帳號綁定"
                     }
                 },
                 {
                     "type": "button",
-                    "style": "link",
+                    "style": "secondary",
                     "height": "sm",
                     "action": {
                         "type": "message",
-                        "label": "使用說明",
-                        "text": "使用說明"
+                        "label": "使用教學",
+                        "text": "使用教學"
                     }
+                },
+                {
+                    "type": "button",
+                    "style": "primary",
+                    "height": "sm",
+                    "color": "#0d6efd",
+                    "action": {
+                        "type": "uri",
+                        "label": "開啟儀表板",
+                        "uri": "https://ben860228.github.io/Jingyi-PCM/"
+                    }
+                },
+                {
+                    "type": "text",
+                    "text": "(電腦版用戶可隨時輸入「選單」來召喚選單)",
+                    "size": "xs",
+                    "color": "#999999",
+                    "align": "center",
+                    "margin": "md"
                 }
             ],
             "flex": 0
