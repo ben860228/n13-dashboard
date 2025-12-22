@@ -100,7 +100,12 @@ function getLiffConfig(userId) {
     if (projectSheet) {
         var projectData = projectSheet.getDataRange().getValues();
         for (var i = 1; i < projectData.length; i++) {
-            if (projectData[i][0]) projects.push({ name: projectData[i][0], id: projectData[i][1] });
+            // CSV: Project_ID(0), Project_Name(1), Spreadsheet_ID(2)
+            var pName = projectData[i][1] || projectData[i][0];
+            var pId = projectData[i][2]; 
+            if (pId) { 
+                projects.push({ name: pName, id: pId });
+            }
         }
     }
 
@@ -153,6 +158,16 @@ function submitBulletin(data) {
         ];
 
         targetSheet.appendRow(rowData);
+        targetSheet.appendRow(rowData);
+        
+        // 🟢 觸發通知 (正式環境)
+        try {
+            broadcastToProject(data.projectId, rowData);
+        } catch (err) {
+            console.error("Broadcast Failed:", err);
+            // 不阻擋發布成功
+        }
+
         return '發佈成功';
 
     } catch (e) {
@@ -730,4 +745,296 @@ function replyText(replyToken, text) {
     } catch (e) {
         console.error('Error sending reply:', e);
     }
+}
+
+/**
+ * ==========================================
+ * Feature: Project Based Notification System
+ * ==========================================
+ */
+
+/**
+ * 廣播給專案成員
+ */
+function broadcastToProject(projectId, postData) {
+    // 1. 取得該專案要通知的 Member Keys
+    var memberKeys = getProjectMemberKeys(projectId);
+    if (!memberKeys || memberKeys.length === 0) {
+        console.log("No members to notify for project: " + projectId);
+        return;
+    }
+
+    // 2. 轉換為 Line User IDs
+    var userIds = getLineIdsByKeys(memberKeys);
+    if (!userIds || userIds.length === 0) {
+        console.log("No valid Line IDs found for keys:", memberKeys);
+        return;
+    }
+
+    // 3. 取得專案資訊 (名稱與代碼)
+    var projectInfo = getProjectInfoById(projectId);
+    var pName = projectInfo ? projectInfo.name : "未知專案";
+    
+    // 4. 製作通知訊息
+    var msgContent = createBulletinFlex(pName, postData, projectInfo);
+
+    // 5. 準備推播文字 (Alt Text)
+    // row: [Timestamp, Date, Author, Type, Category, Item, Content, ...]
+    var authorCht = postData[2];
+    var authorEng = getEnglishNameByChinese(authorCht) || authorCht; // Fallback to Chinese if not found
+    var altText = "新的專案回報 (" + pName + "案/" + authorEng + ")";
+
+    // 6. 發送 Multicast
+    sendMulticast(userIds, msgContent, altText);
+}
+
+/**
+ * [New] 透過中文姓名查詢英文姓名
+ */
+function getEnglishNameByChinese(chtName) {
+    try {
+        var app = SpreadsheetApp.openById(SPREADSHEET_ID);
+        var sheet = app.getSheetByName('staff-table') || app.getSheetByName('Staff_List');
+        var data = sheet.getDataRange().getValues();
+        // CSV: primary key(0), name_cht(1), name_eng(2) ...
+        for (var i = 1; i < data.length; i++) {
+            if (String(data[i][1]).trim() === String(chtName).trim()) {
+                var eng = data[i][2];
+                return (eng && String(eng).trim() !== "") ? eng : chtName;
+            }
+        }
+    } catch(e) { console.error(e); }
+    return chtName;
+}
+
+/**
+ * [New] 透過 Spreadsheet ID 查詢專案資訊
+ * 回傳 { name: "N13", code: "n13" }
+ */
+function getProjectInfoById(spreadsheetId) {
+    try {
+        var app = SpreadsheetApp.openById(SPREADSHEET_ID);
+        var sheet = app.getSheetByName('project-table') || app.getSheetByName('Project_List');
+        var data = sheet.getDataRange().getValues();
+        // CSV: Project_ID(0), Project_Name(1), Spreadsheet_ID(2)
+        for (var i = 1; i < data.length; i++) {
+            // 比對 2 (Spreadsheet ID)
+            if (String(data[i][2]).trim() === String(spreadsheetId).trim()) {
+                var pName = data[i][1]; // e.g. "N13"
+                var pId = data[i][0];   // e.g. "JY_N13"
+                
+                // 嘗試從 Project_Name 取得連結代碼 (e.g. N13 -> n13)
+                // 若 Project_Name 是中文 (e.g. 玉里)，則嘗試用 Project_ID (e.g. JY_Yuli -> jy_yuli)或 fallback
+                var code = String(pName).toLowerCase();
+ 
+                 // 簡單判斷：如果 Name 包含中文，改用 ID
+                if (/[\u4e00-\u9fa5]/.test(code)) {
+                     code = String(pId).toLowerCase().replace('jy_', ''); 
+                }
+                
+                return { name: pName, code: code };
+            }
+        }
+    } catch (e) { console.error(e); }
+    return { name: "未知", code: "index" };
+}
+
+/**
+ * 從 project-table 取得成員 Keys
+ */
+function getProjectMemberKeys(projectId) {
+    var app = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = app.getSheetByName('project-table') || app.getSheetByName('Project_List');
+    var data = sheet.getDataRange().getValues();
+    
+    var members = [];
+    
+    for (var i = 1; i < data.length; i++) {
+        // 修正: 這裡收到的 projectId 是 Spreadsheet ID，所以要比對 Col C (index 2)
+        if (String(data[i][2]).trim() === String(projectId).trim()) {
+            var row = data[i];
+            // 從第 3 欄開始往後抓 (Col D onwards, index 3)
+            for (var c = 3; c < row.length; c++) {
+                var val = String(row[c]).trim();
+                if (val) members.push(val);
+            }
+            break;
+        }
+    }
+    return members;
+}
+
+/**
+ * 從 staff-table 轉換 Keys 為 Line IDs
+ */
+function getLineIdsByKeys(keys) {
+    var app = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = app.getSheetByName('staff-table') || app.getSheetByName('Staff_List');
+    var data = sheet.getDataRange().getValues();
+    
+    // 建立 Key -> ID 的 Map
+    // Key: Col 0, LineID: Col 5
+    var map = {};
+    for (var i = 1; i < data.length; i++) {
+        var k = String(data[i][0]).toLowerCase().trim();
+        var id = String(data[i][5]).trim();
+        if (k && id) map[k] = id;
+    }
+    
+    var resultIds = [];
+    // 使用 Set 去除重複 (如果有的話)
+    var seen = {};
+    
+    keys.forEach(function(key) {
+        var loopKey = String(key).toLowerCase().trim();
+        if (map[loopKey] && !seen[map[loopKey]]) {
+            resultIds.push(map[loopKey]);
+            seen[map[loopKey]] = true;
+        }
+    });
+
+    return resultIds;
+}
+
+/**
+ * 發送 Multicast 訊息
+ */
+function sendMulticast(userIds, flexContents, altText) {
+    // Default alt text if missing
+    var finalAlt = altText || '📢 新的專案回報';
+
+    var url = 'https://api.line.me/v2/bot/message/multicast';
+    var payload = {
+        'to': userIds,
+        'messages': [{
+            'type': 'flex',
+            'altText': finalAlt,
+            'contents': flexContents
+        }]
+    };
+    
+    try {
+        UrlFetchApp.fetch(url, {
+            'headers': {
+                'Content-Type': 'application/json; charset=UTF-8',
+                'Authorization': 'Bearer ' + CHANNEL_ACCESS_TOKEN
+            },
+            'method': 'post',
+            'payload': JSON.stringify(payload)
+        });
+        console.log("Multicast Sent to " + userIds.length + " users.");
+    } catch (e) {
+        console.error("Multicast Error:", e.toString());
+    }
+}
+
+/**
+ * 建立通知卡片
+ */
+function createBulletinFlex(pName, row, projectInfo) {
+    // row: [Timestamp, Date, Author, Type, Category, Item, Content, ...]
+    var date = row[1];
+    var author = row[2];
+    var type = row[3];
+    var category = row[4];
+    var item = row[5];
+    var content = row[6];
+    
+    // Dynamic Dashboard URL
+    // 使用 Project Code 組合網址: {code}-dashboard.html
+    // e.g. n13-dashboard.html
+    var baseUrl = "https://ben860228.github.io/Jingyi-PCM/";
+    var dashboardUrl = baseUrl;
+    
+    if (projectInfo && projectInfo.code && projectInfo.code !== "index") {
+        dashboardUrl = baseUrl + projectInfo.code + "-dashboard.html";
+    }
+    
+    // 簡單的顏色邏輯
+    var barColor = "#333333";
+    if (type === '主管訊息') barColor = "#E74C3C";
+    else if (category.includes('行政')) barColor = "#95A5A6";
+    else if (category.includes('設計')) barColor = "#3498DB";
+    else if (category.includes('施工')) barColor = "#F1C40F";
+
+    return {
+        "type": "bubble",
+        "size": "giga",
+        "header": {
+            "type": "box",
+            "layout": "vertical",
+            "backgroundColor": barColor,
+            "paddingAll": "15px",
+            "contents": [
+                {
+                    "type": "text",
+                    "text": "📢 " + type,
+                    "color": "#FFFFFF",
+                    "weight": "bold",
+                    "size": "lg"
+                },
+                {
+                    "type": "text",
+                    "text": "專案：" + pName + " | " + date,
+                    "color": "#EEEEEE",
+                    "size": "xs",
+                    "margin": "sm"
+                }
+            ]
+        },
+        "body": {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [
+                {
+                    "type": "text",
+                    "text": (category ? "【" + category + "】" : "") + (item || ""),
+                    "weight": "bold",
+                    "color": "#1DB446",
+                    "size": "sm"
+                },
+                {
+                    "type": "text",
+                    "text": content,
+                    "wrap": true,
+                    "margin": "md",
+                    "color": "#555555"
+                },
+                {
+                    "type": "separator",
+                    "margin": "lg"
+                },
+                {
+                    "type": "box",
+                    "layout": "horizontal",
+                    "margin": "md",
+                    "contents": [
+                        {
+                            "type": "text",
+                            "text": "回報者： " + author,
+                            "size": "xs",
+                            "color": "#aaaaaa",
+                            "flex": 1
+                        }
+                    ]
+                }
+            ]
+        },
+        "footer": {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [
+                {
+                    "type": "button",
+                    "style": "link",
+                    "height": "sm",
+                    "action": {
+                        "type": "uri",
+                        "label": "查看儀表板",
+                        "uri": dashboardUrl
+                    }
+                }
+            ]
+        }
+    };
 }
