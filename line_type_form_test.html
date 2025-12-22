@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <base target="_top">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PCM 回報系統 (測試版)</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #212529;
+            color: #f8f9fa;
+            padding-bottom: 50px;
+            border-top: 5px solid #ffc107;
+            /* Yellow Border for Test Env */
+        }
+
+        .form-control,
+        .form-select {
+            background-color: #2c3034;
+            border-color: #495057;
+            color: #fff;
+        }
+
+        .btn-primary {
+            width: 100%;
+            padding: 12px;
+            font-weight: bold;
+        }
+
+        .container {
+            margin-top: 20px;
+        }
+
+        #status-bar {
+            font-size: 12px;
+            color: #aaa;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <div id="status-bar">測試系統載入中...</div>
+
+        <h3 class="mb-4 text-center text-warning">🚧 專案回報 (測試)</h3>
+
+        <div id="userInfoBlock" class="alert alert-secondary">
+            <span id="userNameDisplay">驗證身分中...</span>
+        </div>
+
+        <div id="errorBlock" class="alert alert-danger d-none"></div>
+
+        <!-- NEW: Tab Navigation -->
+        <ul class="nav nav-tabs mb-3" id="modeTabs">
+            <li class="nav-item">
+                <a class="nav-link active" id="tab-new" href="javascript:void(0)" onclick="switchMode('new')">📋
+                    新增回報</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="tab-edit" href="javascript:void(0)" onclick="switchMode('edit')">✏️ 修改回報</a>
+            </li>
+        </ul>
+
+        <!-- NEW: Edit Mode Selector -->
+        <div id="edit-selector-container" class="mb-3" style="display: none;">
+            <label class="form-label">選擇要修改的項目 (最近 20 筆)</label>
+            <select class="form-select" id="reportSelect" onchange="loadReportData(this.value)">
+                <option value="" selected>-- 請選擇 --</option>
+                <option value="loading" disabled>載入中...</option>
+            </select>
+        </div>
+
+        <!-- Success Block (Static, Hidden by Default) -->
+        <div id="successBlock" class="text-center mt-5 p-4 d-none">
+            <div class="mb-4" style="font-size: 80px;">✅</div>
+            <h2 id="successMsg" class="text-white mb-4 fw-bold">處理成功</h2>
+            <p class="text-secondary mb-5 fs-5">資料已成功寫入資料庫</p>
+
+            <div class="d-grid gap-3 col-10 mx-auto">
+                <button type="button" class="btn btn-outline-light btn-lg" onclick="resetForm()">
+                    <span id="successBtnText">再次回報</span>
+                </button>
+            </div>
+
+            <div class="mt-4 text-muted small">
+                JingYi Tech System
+            </div>
+        </div>
+
+        <!-- Main Form Block -->
+        <div id="formBlock">
+            <div id="bulletinForm" class="needs-validation">
+
+                <!-- Hidden Fields -->
+                <input type="hidden" id="userId" name="userId">
+                <input type="hidden" id="lineUserId" name="lineUserId">
+                <input type="hidden" id="uuid" name="uuid"> <!-- NEW: UUID for Edit -->
+
+                <!-- Project -->
+                <div class="mb-3">
+                    <label for="projectSelect" class="form-label fw-bold">專案</label>
+                    <select class="form-select" id="projectSelect" required>
+                        <option value="" disabled selected>讀取專案中...</option>
+                    </select>
+                </div>
+
+                <!-- Date -->
+                <div class="mb-3">
+                    <label for="dateInput" class="form-label fw-bold">日期</label>
+                    <input type="date" class="form-control" id="dateInput" required>
+                </div>
+
+                <!-- Type -->
+                <div class="mb-3">
+                    <label for="typeSelect" class="form-label fw-bold">類型</label>
+                    <select class="form-select" id="typeSelect" required>
+                        <option value="進度回報" selected>進度回報</option>
+                        <option value="會議記錄">會議記錄</option>
+                    </select>
+                </div>
+
+                <!-- Category Block -->
+                <div class="mb-3" id="catBlock">
+                    <label for="categorySelect" class="form-label fw-bold">分類 (子分類)</label>
+                    <select class="form-select" id="categorySelect">
+                        <option value="行政" selected>行政</option>
+                        <option value="設計">設計</option>
+                        <option value="施工">施工</option>
+                    </select>
+                </div>
+
+                <!-- Task Block -->
+                <div class="mb-3" id="taskBlock">
+                    <label for="taskSelect" class="form-label fw-bold">工作項目</label>
+                    <!-- Default select, will be replaced by script if loading fails or loaded -->
+                    <select class="form-select" id="taskSelect">
+                        <option value="" disabled selected>讀取中...</option>
+                    </select>
+                    <div class="form-text text-muted" id="taskHint">
+                        若無對應工項可選「其他」或手動輸入
+                    </div>
+                </div>
+
+
+                <!-- Content -->
+                <div class="mb-4">
+                    <label for="contentInput" class="form-label fw-bold">內容</label>
+                    <textarea class="form-control" id="contentInput" rows="5" required
+                        placeholder="請輸入回報內容..."></textarea>
+                </div>
+
+                <!-- Helper text -->
+                <div class="mb-3 d-flex justify-content-center align-items-center position-relative">
+                    <small class="text-muted" id="status-bar-bottom">準備就緒 (Test)</small>
+                    <span class="position-absolute end-0" onclick="toggleDebug()"
+                        style="cursor: pointer; opacity: 0.3; font-size: 1.2rem;">ℹ️</span>
+                </div>
+
+                <!-- Submit Btn -->
+                <div class="d-grid gap-2">
+                    <button type="button" id="submitBtn" class="btn btn-warning btn-lg fw-bold shadow-sm">
+                        發佈 (測試)
+                    </button>
+                </div>
+
+                <!-- DEBUG CONSOLE (Hidden by default) -->
+                <div class="mt-4 p-2 bg-dark text-warning font-monospace" id="debug-console"
+                    style="display: none; font-size: 10px; opacity: 0.8; height: 100px; overflow-y: scroll;">
+                    System Ready.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+    <script>
+        // Global Error Handler
+        window.onerror = function (msg, url, line, col, error) {
+            debugLog("JS Error: " + msg + " (L" + line + ")");
+            return false;
+        };
+
+        function debugLog(msg) {
+            const c = document.getElementById('debug-console');
+            if (c) {
+                const t = new Date().toLocaleTimeString();
+                c.innerHTML += `<div>[${t}] ${msg}</div>`;
+                c.scrollTop = c.scrollHeight;
+            }
+            // Also console for verification
+            console.log(msg);
+        }
+
+        function toggleDebug() {
+            const c = document.getElementById('debug-console');
+            if (c.style.display === 'none') {
+                c.style.display = 'block';
+            } else {
+                c.style.display = 'none';
+            }
+        }
+
+        const LIFF_ID = "2008698380-xwXH3g1t";
+        const MAGIC_UID = "<?= serverUid ?>";
+        // Public CSV Link (Matches Dashboard)
+        const TASKS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQiyY2STxHEAcJIa_wBeLHRYpGj82dozn-1tCo_ZhltPo-CABMaWOD88K7LLJnXTtW_3IV-k2qZq8HV/pub?gid=0&single=true&output=csv";
+
+        // Global Tasks Storage
+        let g_allTasks = [];
+        // NEW: Global Cache for Reports
+        let myReportsCache = [];
+        let currentMode = 'new'; // 'new' | 'edit'
+
+        // 更粗暴直接的環境判斷 (不依賴 LIFF init)
+        const isLineClient = navigator.userAgent.includes('Line') || navigator.userAgent.includes('LINB');
+
+        document.addEventListener("DOMContentLoaded", function () {
+            try {
+                document.getElementById('dateInput').valueAsDate = new Date();
+
+                // Init UI Logic Immediately
+                setupFormLogic();
+                // alert("系統載入完成，按鈕監聽已啟動"); // Debug Alert
+
+                if (MAGIC_UID && MAGIC_UID.trim() !== "") {
+                    updateStatus("🟢 使用專屬連結登入"); // User noted this text
+                    debugLog("Server UID Found");
+                    fetchConfig(MAGIC_UID);
+                    initLiffSilently();
+                } else {
+                    updateStatus("🟠 無參數，嘗試 LIFF 連線...");
+                    tryLiffLogin();
+                }
+            } catch (e) {
+                debugLog("Init Error: " + e.message);
+            }
+        });
+
+        // 默默初始化 LIFF 且不執行登入 (只為了拿功能)
+        function initLiffSilently() {
+            if (typeof liff !== 'undefined') {
+                liff.init({ liffId: LIFF_ID }).catch(err => console.log('Silent Init Error', err));
+            }
+        }
+
+        function tryLiffLogin() {
+            if (typeof liff !== 'undefined') {
+                liff.init({ liffId: LIFF_ID }).then(() => {
+                    if (!liff.isLoggedIn()) {
+                        liff.login();
+                    } else {
+                        liff.getProfile().then(profile => {
+                            fetchConfig(profile.userId);
+                        });
+                    }
+                }).catch(err => {
+                    showError("無法識別身分。請在 LINE 聊天室輸入「回報」來取得專屬連結。");
+                });
+            }
+        }
+
+        function fetchConfig(userId) {
+            document.getElementById('lineUserId').value = userId; // Bind hidden
+            document.getElementById('userId').value = userId;     // Bind extra hidden for safety
+            debugLog("Fetching config for: " + userId);
+
+            google.script.run
+                .withSuccessHandler(onConfigLoaded)
+                .withFailureHandler(onFailure)
+                .getLiffConfigTest(userId);
+        }
+
+        function onConfigLoaded(configStr) {
+            let config;
+            try {
+                debugLog("Config Raw: " + configStr); // Debug see what we get
+                config = JSON.parse(configStr);
+            } catch (e) {
+                config = { success: false, message: "JSON Parse Error: " + e.message };
+            }
+
+            if (config.error || !config.success) {
+                // If backend caught error, it might return obj directly if not handled strictly, 
+                // but we stringified success path. Failure path in catch might still be obj?
+                // backend catch returns obj using try-catch I added? 
+                // Wait, backend catch block returns object. I should stringify that too.
+                showError((config.message || "身分驗證失敗，請確認綁定狀態"));
+                return;
+            }
+
+            // ... Rest of logic stays same as 'config' is now an object ...
+            debugLog("Config Parsed OK. User: " + config.userName);
+
+            // Update UI with User Info
+            document.getElementById('userInfoBlock').classList.remove('alert-secondary');
+            document.getElementById('userInfoBlock').classList.add('alert-info');
+            document.getElementById('userNameDisplay').innerText = `你好，${config.userName} (測試)`;
+
+            // Fill Project Select
+            const pSelect = document.getElementById('projectSelect');
+            pSelect.innerHTML = "";
+            let firstProjectId = "";
+
+            if (config.projects && config.projects.length > 0) {
+                config.projects.forEach((p, idx) => {
+                    let opt = document.createElement("option");
+                    opt.text = p.name;
+                    opt.value = p.id;
+                    pSelect.add(opt);
+                    if (idx === 0) firstProjectId = p.id;
+                });
+
+                // Load tasks for the first project initially (RESTORED FUNCTIONALITY)
+                if (firstProjectId) {
+                    loadProjectTasks(firstProjectId);
+                    // If in Edit Mode, auto-fetch report history
+                    if (currentMode === 'edit') fetchMyReports(firstProjectId);
+                }
+
+                // Add change listener
+                pSelect.addEventListener('change', function () {
+                    const pid = this.value;
+                    loadProjectTasks(pid);
+                    if (currentMode === 'edit') fetchMyReports(pid);
+                });
+
+            } else {
+                pSelect.add(new Option("無可用專案", ""));
+            }
+
+            if (config.isBoss) {
+                const typeSelect = document.getElementById('typeSelect');
+                let exists = Array.from(typeSelect.options).some(o => o.value === '主管訊息');
+                if (!exists) typeSelect.add(new Option("主管訊息", "主管訊息"));
+            }
+        }
+
+        function loadProjectTasks(projectId) {
+            const tSelect = document.getElementById('taskSelect');
+            const taskBlock = document.getElementById('taskBlock');
+
+            // UI Reset
+            tSelect.innerHTML = '<option disabled selected>努力讀取中 (約需 10 秒)...</option>';
+            // Reset to Select Mode (in case it was Input Mode)
+            if (tSelect.tagName === 'INPUT') {
+                // Replace Input back to Select
+                const newSelect = document.createElement('select');
+                newSelect.id = 'taskSelect';
+                newSelect.className = 'form-select';
+                tSelect.parentNode.replaceChild(newSelect, tSelect);
+            }
+
+            const currentType = document.getElementById('typeSelect').value;
+            if (currentType === '進度回報') {
+                taskBlock.classList.remove('d-none');
+            }
+
+            // Flag to prevent double execution
+            let isResolved = false;
+
+            // 1. Fallback Timer (15 seconds)
+            const fallbackTimer = setTimeout(() => {
+                if (!isResolved) {
+                    isResolved = true;
+                    // Switch to Input
+                    const tContainer = document.getElementById('taskSelect').parentNode;
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.id = 'taskSelect'; // Keep ID for submit logic compatibility
+                    input.className = 'form-control';
+                    input.placeholder = '讀取逾時，請直接輸入工項名稱...';
+
+                    const oldEl = document.getElementById('taskSelect');
+                    tContainer.replaceChild(input, oldEl);
+                    // alert("讀取過久，已切換為手動輸入模式。"); // Optional alert
+                }
+            }, 15000);
+
+            // 2. Try Backend Load
+            try {
+                if (typeof google !== 'undefined' && google.script) {
+                    google.script.run
+                        .withSuccessHandler(rawResult => {
+                            if (isResolved) return; // Too late
+
+                            let result;
+                            try {
+                                result = JSON.parse(rawResult);
+                            } catch (e) { console.error(e); }
+
+                            if (!result || !result.success || !result.tasks) {
+                                console.warn("Backend load empty", result);
+                                loadTasksFromCSV(tSelect, fallbackTimer);
+                                return;
+                            }
+
+                            // Success!
+                            isResolved = true;
+                            clearTimeout(fallbackTimer);
+                            g_allTasks = result.tasks.map(t => ({
+                                name: t.name,
+                                category: t.category,
+                                pStart: t.planStart ? new Date(t.planStart) : null,
+                                pEnd: t.planEnd ? new Date(t.planEnd) : null,
+                                aStart: t.actStart ? new Date(t.actStart) : null,
+                                aEnd: t.actEnd ? new Date(t.actEnd) : null
+                            }));
+                            renderTaskOptions();
+                        })
+                        .withFailureHandler(err => {
+                            console.error("Backend failed", err);
+                            loadTasksFromCSV(tSelect, fallbackTimer);
+                        })
+                        .getProjectTasks(projectId);
+                } else {
+                    throw new Error("Local Environment");
+                }
+            } catch (e) {
+                console.warn("Google Script API missing, switching to CSV Fallback immediately.");
+                loadTasksFromCSV(tSelect, fallbackTimer);
+            }
+        }
+
+        function loadTasksFromCSV(tSelect, fallbackTimer) {
+            Papa.parse(TASKS_CSV_URL, {
+                download: true,
+                header: true,
+                skipEmptyLines: true,
+                complete: function (results) {
+                    // Check if already resolved by backend
+                    if (isResolved) return;
+                    isResolved = true;
+                    clearTimeout(fallbackTimer);
+
+                    const rows = results.data;
+                    g_allTasks = []; // Global Storage
+
+                    if (!rows || rows.length === 0) {
+                        tSelect.innerHTML = '<option disabled>查無數據</option>';
+                        return;
+                    }
+
+                    rows.forEach(r => {
+                        const name = r['任務名稱'] || r['TaskName'] || r['Name'];
+                        if (!name) return;
+
+                        const category = r['分類'] || r['Category'] || '';
+                        const planStartStr = r['開始時間'] || r['Start'];
+                        const planEndStr = r['結束日期'] || r['End'];
+                        const actStartStr = r['實際開始時間'] || r['ActualStart'];
+                        const actEndStr = r['實際完成時間'] || r['ActualEnd'];
+
+                        // Simple Date Parse
+                        const pStart = planStartStr ? new Date(planStartStr) : null;
+                        const pEnd = planEndStr ? new Date(planEndStr) : null;
+                        const aStart = actStartStr ? new Date(actStartStr) : null;
+                        const aEnd = actEndStr ? new Date(actEndStr) : null;
+
+                        g_allTasks.push({ name, category, pStart, pEnd, aStart, aEnd });
+                    });
+
+                    // Initial Render
+                    renderTaskOptions();
+                },
+                error: function (err) {
+                    console.error(err);
+                    tSelect.innerHTML = '<option disabled>讀取失敗</option>';
+                    debugLog("CSV 讀取失敗: " + (err.message || err));
+                }
+            });
+        }
+
+        // RESTORED: Advanced Task Rendering Logic
+        function renderTaskOptions() {
+            const tSelect = document.getElementById('taskSelect');
+            if (!tSelect || tSelect.tagName !== 'SELECT') return; // Should be select
+
+            // Get Current Filtering Category
+            const catSelect = document.getElementById('categorySelect');
+            const selectedCat = catSelect ? catSelect.value : '';
+
+            // Filter tasks based on selected category
+            let filteredTasks = g_allTasks;
+            if (selectedCat) {
+                filteredTasks = g_allTasks.filter(t => t.category === selectedCat);
+            }
+
+            tSelect.innerHTML = '<option value="">狀態回報 (無特定工項)</option>';
+
+            if (filteredTasks.length === 0) {
+                if (g_allTasks.length > 0) {
+                    let opt = document.createElement("option");
+                    opt.disabled = true;
+                    opt.text = "(此分類下無工項)";
+                    tSelect.add(opt);
+                } else {
+                    tSelect.innerHTML = '<option disabled>載入中...</option>';
+                }
+                return;
+            }
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const groupOverdue = [];
+            const groupOngoing = [];
+            const groupUpcoming = [];
+            const groupDone = [];
+            const groupOthers = [];
+
+            filteredTasks.forEach(t => {
+                const { name, pStart, pEnd, aStart, aEnd } = t;
+
+                // Done
+                if (aEnd) {
+                    groupDone.push(t);
+                    return;
+                }
+
+                // Overdue
+                const isLateFinish = pEnd && today > pEnd;
+                const isLateStart = pStart && today > pStart && !aStart;
+
+                if (isLateFinish || isLateStart) {
+                    groupOverdue.push(t);
+                    return;
+                }
+
+                // Ongoing
+                if (aStart && !aEnd) {
+                    groupOngoing.push(t);
+                    return;
+                }
+
+                // Upcoming
+                if (pStart && pStart > today) {
+                    groupUpcoming.push(t);
+                    return;
+                }
+
+                // Others
+                groupOthers.push(t);
+            });
+
+            const appendGroup = (label, list) => {
+                if (list.length === 0) return;
+                const grp = document.createElement('optgroup');
+                grp.label = label;
+                list.forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t.name;
+                    opt.text = t.name;
+                    grp.appendChild(opt);
+                });
+                tSelect.appendChild(grp);
+            };
+
+            appendGroup("🔴 🔴 異常 / 逾期", groupOverdue); // Emphasize
+            appendGroup("🔵 進行中", groupOngoing);
+            appendGroup("🟡 即將開始", groupUpcoming);
+            appendGroup("🟢 已完成", groupDone);
+            appendGroup("⚪ 其他", groupOthers);
+        }
+
+        // ==========================================
+        // NEW: UI Logic: Tabs & Modes
+        // ==========================================
+        // NEW: Manual Reset function to avoid reload white screen
+        function resetForm() {
+            // 1. Hide Success
+            document.getElementById('successBlock').classList.add('d-none');
+
+            // 2. Clear Form Fields
+            document.getElementById('contentInput').value = '';
+            document.getElementById('taskSelect').value = '';
+
+            // 3. Reset Button
+            const btn = document.getElementById('submitBtn');
+            btn.disabled = false;
+            btn.innerText = (currentMode === 'edit') ? "確認修改 (測試)" : "發佈 (測試)";
+
+            // 4. Force Switch to Current Mode (Reset UI)
+            switchMode(currentMode);
+
+            // 5. If Edit Mode, maybe refetch list?
+            if (currentMode === 'edit') {
+                const pid = document.getElementById('projectSelect').value;
+                if (pid) fetchMyReports(pid);
+            }
+        }
+
+        function switchMode(mode) {
+            currentMode = mode;
+
+            // 1. Reset UI State
+            const formContainer = document.getElementById('formBlock');
+            const userInfoBlock = document.getElementById('userInfoBlock');
+            const statusBar = document.getElementById('status-bar');
+
+            // HIDE Static Success Block
+            document.getElementById('successBlock').classList.add('d-none');
+
+            // Restore Form
+            formContainer.classList.remove('d-none');
+            // Don't show userInfoBlock if it was hidden by error
+            if (!document.getElementById('errorBlock').innerText) {
+                userInfoBlock.classList.remove('d-none');
+            }
+            if (statusBar) statusBar.style.display = 'block';
+
+            // 2. Update Tab UI
+            document.querySelectorAll('#modeTabs .nav-link').forEach(el => el.classList.remove('active'));
+            document.getElementById('tab-' + mode).classList.add('active');
+
+            const submitBtn = document.getElementById('submitBtn');
+            // 3. Toggle Mode Specifics
+            const editSelector = document.getElementById('edit-selector-container');
+
+            if (mode === 'edit') {
+                editSelector.style.display = 'block';
+                submitBtn.innerText = '確認修改 (測試)';
+
+                // Trigger fetch if project selected
+                const pid = document.getElementById('projectSelect').value;
+                if (pid) {
+                    fetchMyReports(pid);
+                } else {
+                    // Wait for project select
+                }
+            } else {
+                editSelector.style.display = 'none';
+                submitBtn.innerText = '發佈 (測試)';
+
+                // Reset Form (Except Project & User)
+                document.getElementById('uuid').value = '';
+                document.getElementById('contentInput').value = '';
+                document.getElementById('dateInput').valueAsDate = new Date();
+
+                // Reset to "New" state default? maybe clear task?
+            }
+        }
+
+        function fetchMyReports(projectId) {
+            const uid = document.getElementById('lineUserId').value;
+            // DEBUG ALERT
+            alert("開始讀取紀錄...\nUser: " + uid + "\nProject: " + projectId);
+
+            if (!uid) {
+                alert("錯誤：沒有 User ID");
+                return;
+            }
+
+            const rSelect = document.getElementById('reportSelect');
+            rSelect.innerHTML = '<option>載入中...</option>';
+            rSelect.disabled = true;
+
+            google.script.run
+                .withSuccessHandler(responseStr => {
+                    let response;
+                    try {
+                        response = JSON.parse(responseStr);
+                    } catch (e) {
+                        response = { success: false, message: "JSON Parse Fail: " + e.message };
+                    }
+
+                    debugLog("Ret Success. Status=" + response.success);
+                    rSelect.disabled = false;
+                    if (response.success) {
+                        debugLog("Count: " + response.posts.length);
+                        myReportsCache = response.posts;
+                        renderReportOptions(response.posts);
+                    } else {
+                        rSelect.innerHTML = '<option>載入失敗</option>';
+                        debugLog("Load Fail: " + response.message);
+                    }
+                })
+                .withFailureHandler(err => {
+                    rSelect.disabled = false;
+                    rSelect.innerHTML = '<option>錯: ' + err.message + '</option>';
+                    alert('API 呼叫致命失敗: ' + err.message);
+                })
+                .getMyRecentBulletinsTest({ projectId: projectId, lineUserId: uid });
+        }
+
+        function renderReportOptions(posts) {
+            const rSelect = document.getElementById('reportSelect');
+            rSelect.innerHTML = '<option value="" selected>-- 請選擇要修改的紀錄 --</option>';
+
+            if (posts.length === 0) {
+                let opt = new Option("(無近期紀錄)", "");
+                opt.disabled = true;
+                rSelect.add(opt);
+                return;
+            }
+
+            posts.forEach((p, index) => {
+                // Format: Content (Item) - Date
+                let contentSummary = (p.content || '').length > 15 ? (p.content || '').substring(0, 15) + '...' : (p.content || '');
+                let itemStr = p.item ? `(${p.item})` : '';
+                let label = `${contentSummary} ${itemStr} - ${p.date.substring(5)}`;
+
+                let opt = new Option(label, index);
+                opt.dataset.uuid = p.uuid;
+                rSelect.add(opt);
+            });
+        }
+
+        function loadReportData(index) {
+            if (index === "" || index === "loading") return;
+            const data = myReportsCache[index];
+            if (!data) return;
+
+            document.getElementById('uuid').value = data.uuid;
+            document.getElementById('dateInput').value = data.date;
+            document.getElementById('typeSelect').value = data.type;
+
+            // Trigger Type Logic to show category/task blocks
+            const newTypeSelect = document.getElementById('typeSelect');
+            newTypeSelect.dispatchEvent(new Event('change'));
+
+            document.getElementById('categorySelect').value = data.category;
+            // Trigger Category Logic (Task Filter)
+            const catSelect = document.getElementById('categorySelect');
+            catSelect.dispatchEvent(new Event('change'));
+
+            // Set Task Item (Async handling)
+            setTimeout(() => {
+                const tSelect = document.getElementById('taskSelect');
+                if (tSelect.tagName === 'SELECT') {
+                    // Check if option exists
+                    let exists = Array.from(tSelect.options).some(o => o.value === data.item);
+                    if (!exists && data.item) {
+                        tSelect.add(new Option(data.item, data.item));
+                    }
+                    tSelect.value = data.item;
+                } else {
+                    tSelect.value = data.item;
+                }
+            }, 500); // Wait for renderTaskOptions
+
+            document.getElementById('contentInput').value = data.content;
+        }
+
+        // ==========================================
+        // UI Helpers
+        // ==========================================
+        function updateStatus(msg) {
+            document.getElementById('status-bar').innerText = msg;
+        }
+
+        function showError(msg) {
+            const block = document.getElementById('errorBlock');
+            block.innerText = msg;
+            block.classList.remove('d-none');
+            document.getElementById('userInfoBlock').classList.add('d-none');
+        }
+
+        function onFailure(error) {
+            debugLog("Init Fatal Error: " + (error.message || error));
+            showError("初始化失敗: " + (error.message || error));
+        }
+
+        function closeAppWindow() {
+            const btn = document.getElementById('submitBtn'); // Use valid btn ref just in case
+            // 嘗試所有關閉方法
+            if (typeof liff !== 'undefined' && liff.isInClient()) {
+                liff.closeWindow();
+            } else {
+                window.close();
+            }
+        }
+
+        function setupFormLogic() {
+            const typeSelect = document.getElementById('typeSelect');
+            const catBlock = document.getElementById('catBlock'); // ID verified: catBlock
+            const taskBlock = document.getElementById('taskBlock');
+
+            // Handle Type Change
+            const newTypeSelect = typeSelect.cloneNode(true);
+            typeSelect.parentNode.replaceChild(newTypeSelect, typeSelect);
+
+            newTypeSelect.addEventListener('change', function () {
+                const cb = document.getElementById('catBlock');
+                const tb = document.getElementById('taskBlock');
+
+                if (this.value === '進度回報') {
+                    if (cb) cb.classList.remove('d-none');
+                    if (tb) tb.classList.remove('d-none');
+                    renderTaskOptions();
+                } else {
+                    if (cb) cb.classList.add('d-none');
+                    if (tb) tb.classList.add('d-none');
+                }
+            });
+
+            // Bind Category Change
+            const catSelect = document.getElementById('categorySelect');
+            if (catSelect) {
+                const newCatSelect = catSelect.cloneNode(true);
+                catSelect.parentNode.replaceChild(newCatSelect, catSelect);
+                newCatSelect.addEventListener('change', function () {
+                    renderTaskOptions();
+                });
+            }
+
+            // Bind Click to Button directly (No Clone)
+            const btn = document.getElementById('submitBtn');
+            btn.onclick = function () {
+                // Debug Flash
+                updateStatus("🚀 發佈啟動中... (Test)");
+
+                // 0. Auth Check
+                const uid = document.getElementById('lineUserId').value;
+                if (!uid) {
+                    alert("身分尚未驗證，請等待綠條或橘條出現...");
+                    return;
+                }
+
+                // 1. Content Check
+                const contentInput = document.getElementById('contentInput');
+                if (!contentInput.value.trim()) {
+                    alert('請輸入內容');
+                    contentInput.focus();
+                    return;
+                }
+
+                // 2. Disable Button Immediately
+                btn.disabled = true;
+                btn.innerText = "處理中...";
+
+                try {
+                    let contentVal = document.getElementById('contentInput').value;
+                    const taskVal = document.getElementById('taskSelect').value;
+
+                    const data = {
+                        projectId: document.getElementById('projectSelect').value,
+                        date: document.getElementById('dateInput').value,
+                        type: document.getElementById('typeSelect').value,
+                        category: document.getElementById('categorySelect').value,
+                        item: taskVal || '',
+                        content: contentVal,
+                        lineUserId: uid, // Use validated UID
+                        uuid: document.getElementById('uuid').value // NEW: For Edit
+                    };
+
+                    // Clean data
+                    if (data.type !== '進度回報') {
+                        data.category = '';
+                        data.item = '';
+                    }
+
+                    // Choose API Method
+                    const apiMethod = (currentMode === 'edit' && data.uuid) ? 'updateBulletinTest' : 'submitBulletinTest';
+
+                    if (typeof google === 'undefined' || !google.script) {
+                        throw new Error("Google Script API not loaded.");
+                    }
+
+                    google.script.run
+                        .withSuccessHandler(resStr => {
+                            console.log("Success Raw:", resStr);
+                            let resVal = resStr;
+                            let isJson = false;
+                            try {
+                                const parsed = JSON.parse(resStr);
+                                if (parsed && typeof parsed === 'object') {
+                                    resVal = parsed;
+                                    isJson = true;
+                                }
+                            } catch (e) {
+                                // Not JSON, treat as string message
+                            }
+
+                            // Handle Error Case from Backend (if JSON)
+                            if (isJson && resVal.success === false) {
+                                alert("❌ 處理失敗: " + resVal.message);
+                                btn.disabled = false;
+                                btn.innerText = (currentMode === 'edit') ? "確認修改 (測試)" : "發佈 (測試)";
+                                return;
+                            }
+
+                            // Success Message
+                            let msg = (isJson) ? (resVal.message || "處理成功") : resVal;
+
+                            // DIFFERENT BEHAVIOR FOR EDIT
+                            // 4. Shared Success UI for both New & Edit
+                            // 4. Shared Success UI for both New & Edit
+                            // 5. Static Success UI (Safe Mode)
+                            try {
+                                document.getElementById('formBlock').classList.add('d-none');
+                                document.getElementById('userInfoBlock').classList.add('d-none');
+                                if (document.getElementById('edit-selector-container')) {
+                                    document.getElementById('edit-selector-container').style.display = 'none';
+                                }
+                                if (document.getElementById('status-bar')) {
+                                    document.getElementById('status-bar').style.display = 'none';
+                                }
+
+                                // Show Success Block
+                                const sBlock = document.getElementById('successBlock');
+                                const sMsg = document.getElementById('successMsg');
+                                const sBtn = document.getElementById('successBtnText');
+
+                                if (sBlock) sBlock.classList.remove('d-none');
+                                if (sMsg) sMsg.innerText = msg;
+                                if (sBtn) sBtn.innerText = (currentMode === 'edit') ? '返回回報列表' : '再次回報';
+
+                            } catch (uiErr) {
+                                alert("Success UI Error: " + uiErr.message);
+                                location.reload();
+                            }
+                        })
+                        .withFailureHandler(err => {
+                            console.error("Failure Handler:", err);
+                            alert("失敗 (後端拒絕)：\n" + (err.message || err));
+                            btn.disabled = false; btn.innerText = (currentMode === 'edit') ? "確認修改 (測試)" : "發佈 (測試)";
+                        })
+                    [apiMethod](data); // Dynamic call
+
+                } catch (ex) {
+                    console.error("JS Error:", ex);
+                    alert("發佈程序錯誤 (前端)：\n" + ex.message);
+                    btn.disabled = false; btn.innerText = (currentMode === 'edit') ? "確認修改 (測試)" : "發佈 (測試)";
+                }
+            };
+
+            // Init state for type Select (Trigger change to hide/show blocks)
+            newTypeSelect.dispatchEvent(new Event('change'));
+        }
+    </script>
+</body>
+
+</html>
