@@ -72,6 +72,7 @@
             margin-top: 4px;
             display: -webkit-box;
             -webkit-line-clamp: 2;
+            line-clamp: 2;
             -webkit-box-orient: vertical;
             overflow: hidden;
         }
@@ -84,7 +85,58 @@
             font-size: 0.8em;
             z-index: 10;
         }
+
+        /* Improved Placeholder Visibility */
+        ::placeholder {
+            color: #adb5bd !important;
+            opacity: 1;
+        }
+
+        /* Calculator Styles */
+        .calc-weight-bar-bg {
+            height: 6px;
+            background-color: #495057;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .calc-weight-bar-fill {
+            height: 100%;
+            background-color: #0dcaf0;
+            /* Info Blue */
+            transition: width 0.3s ease;
+        }
+
+        .calc-weight-bar-fill.over {
+            background-color: #dc3545;
+        }
+
+        .calc-weight-bar-fill.under {
+            background-color: #ffc107;
+        }
+
+        .calc-weight-bar-fill.exact {
+            background-color: #198754;
+        }
+
+        .calc-item-card {
+            background-color: #383c40;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+            position: relative;
+            border: 1px solid #4a4e52;
+        }
+
+        .calc-delete-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+        }
     </style>
+    </style>
+    <!-- Removed BI Link for Stability -->
 </head>
 
 <body>
@@ -94,8 +146,15 @@
 
         <h3 class="mb-4 text-center">📋 專案回報</h3>
 
+
         <div id="userInfoBlock" class="alert alert-secondary">
             <span id="userNameDisplay">驗證身分中...</span>
+        </div>
+        <div class="mt-2 mb-3 input-group input-group-sm">
+            <span class="input-group-text bg-dark text-secondary border-secondary">專案</span>
+            <select id="projectSelect" class="form-select form-select-sm" aria-label="Project Select">
+                <option value="" selected disabled>讀取專案列表...</option>
+            </select>
         </div>
 
         <div id="errorBlock" class="alert alert-danger d-none"></div>
@@ -109,6 +168,10 @@
             <li class="nav-item">
                 <a class="nav-link" id="tab-edit" href="javascript:void(0)" onclick="switchMode('edit')">✏️ 修改回報</a>
             </li>
+            <li class="nav-item">
+                <a class="nav-link" id="tab-progress" href="javascript:void(0)" onclick="switchMode('progress')">📈
+                    週進度</a>
+            </li>
         </ul>
 
         <!-- NEW: Edit Mode Selector (Card View) -->
@@ -116,6 +179,80 @@
             <label class="form-label text-info">選擇要修改的項目 (最近 20 筆)</label>
             <div id="reportList" style="max-height: 300px; overflow-y: auto;">
                 <div class="text-center text-muted p-3">載入中...</div>
+            </div>
+        </div>
+
+        <!-- NEW: Weekly Progress Container -->
+        <div id="progressBlock" class="d-none mb-5">
+            <!-- Date & Filter Header -->
+            <div class="card mb-3 bg-dark border-secondary">
+                <div class="card-body p-2 d-flex justify-content-between align-items-center">
+                    <div class="d-flex flex-column">
+                        <span class="text-secondary" style="font-size: 10px;">回報區間 (週五)</span>
+                        <select id="progressDateSelect"
+                            class="form-select form-select-sm py-0 bg-dark text-white border-0"
+                            style="width: auto; font-weight:bold;">
+                            <option>載入中...</option>
+                        </select>
+                    </div>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="showAllTasksSwitch"
+                            onchange="renderProgressCards()">
+                        <label class="form-check-label text-secondary small" for="showAllTasksSwitch">全部</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cards Container -->
+            <div id="progressList" class="pb-5">
+                <div class="text-center text-muted mt-5">請選擇專案以載入進度</div>
+            </div>
+
+            <!-- Floating Action Button Area -->
+            <div class="fixed-bottom p-3"
+                style="background: linear-gradient(transparent 10%, #212529 40%); pointer-events: none;">
+                <button id="btnSubmitProgress" class="btn btn-primary w-100 shadow-lg fw-bold p-3"
+                    style="pointer-events: auto; display:none;" onclick="submitProgressBatch()">
+                    🚀 送出更新 (<span id="progress-update-count">0</span>)
+                </button>
+            </div>
+        </div>
+
+        <!-- NEW: Calculator Modal -->
+        <div class="modal fade" id="calcModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content bg-dark text-white border-secondary">
+                    <div class="modal-header border-secondary p-2">
+                        <h5 class="modal-title fs-6" id="calcModalTitle">個人計算機</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                            aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body p-2">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="small text-muted">權重分配</span>
+                            <button class="btn btn-sm btn-outline-info py-0" onclick="addCalcItem()">+ 新增子項目</button>
+                        </div>
+
+                        <div id="calcItemsList" style="max-height: 250px; overflow-y: auto;">
+                            <!-- items -->
+                        </div>
+
+                        <div class="border-top border-secondary mt-3 pt-2">
+                            <div class="d-flex justify-content-between small mb-1">
+                                <span>總權重: <span id="calcTotalWeight" class="fw-bold">0</span>%</span>
+                                <span id="calcWeightWarning" class="text-danger" style="display:none;">(非 100%)</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="fs-5">本週總進度:</span>
+                                <span class="fs-4 fw-bold text-success"><span id="calcResult">0</span>%</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-secondary p-2">
+                        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">取消</button>
+                        <button type="button" class="btn btn-sm btn-primary" onclick="applyCalcResult()">套用並儲存</button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -147,13 +284,8 @@
                 <input type="hidden" id="lineUserId" name="lineUserId">
                 <input type="hidden" id="uuid" name="uuid"> <!-- NEW: UUID for Edit -->
 
-                <!-- Project -->
-                <div class="mb-3">
-                    <label for="projectSelect" class="form-label fw-bold">專案</label>
-                    <select class="form-select" id="projectSelect" required>
-                        <option value="" disabled selected>讀取專案中...</option>
-                    </select>
-                </div>
+                <!-- Project (Moved to Top) -->
+                <!-- Removed duplicate selector -->
 
                 <!-- Date -->
                 <div class="mb-3">
@@ -244,6 +376,11 @@
             }
             // Also console for verification
             console.log(msg);
+        }
+
+        function updateStatus(msg) {
+            const bar = document.getElementById('status-bar');
+            if (bar) bar.innerText = msg;
         }
 
         function toggleDebug() {
@@ -391,6 +528,11 @@
             pSelect.innerHTML = "";
             let firstProjectId = "";
 
+            // Hint Option
+            pSelect.add(new Option("請選擇專案...", ""));
+            pSelect.options[0].disabled = true;
+            pSelect.options[0].selected = true;
+
             if (config.projects && config.projects.length > 0) {
                 config.projects.forEach((p, idx) => {
                     let opt = document.createElement("option");
@@ -400,20 +542,41 @@
                     if (idx === 0) firstProjectId = p.id;
                 });
 
-                // Load tasks
+                // Auto-select first project for convenience
                 if (firstProjectId) {
+                    pSelect.value = firstProjectId;
+                    // Initial Load triggers
+                    if (currentMode === 'progress') {
+                        fetchProgressData(firstProjectId);
+                    } else if (currentMode === 'edit') {
+                        fetchMyReports(firstProjectId);
+                    }
+                    // Always load form tasks
                     loadProjectTasks(firstProjectId);
-                    if (currentMode === 'edit') fetchMyReports(firstProjectId);
                 }
 
                 pSelect.addEventListener('change', function () {
                     const pid = this.value;
+                    if (!pid) return;
+
+                    // Reset Data Logic - IMPORTANT for project switching
+                    g_progressTasks = [];
+                    g_progressDates = [];
+
+                    if (currentMode === 'progress') {
+                        // Clear current view first to avoid confusion
+                        document.getElementById('progressList').innerHTML = '<div class="text-center p-5 text-muted">載入中...</div>';
+                        fetchProgressData(pid);
+                    } else if (currentMode === 'edit') {
+                        fetchMyReports(pid);
+                    }
+
+                    // Always reload form tasks for consistency
                     loadProjectTasks(pid);
-                    if (currentMode === 'edit') fetchMyReports(pid);
                 });
 
             } else {
-                pSelect.add(new Option("無可用專案", ""));
+                pSelect.innerHTML = '<option disabled>無可用專案</option>';
             }
 
             if (config.isBoss) {
@@ -421,6 +584,8 @@
                 let exists = Array.from(typeSelect.options).some(o => o.value === '主管訊息');
                 if (!exists) typeSelect.add(new Option("主管訊息", "主管訊息"));
             }
+
+            updateStatus("🟢 就緒");
         }
 
         function loadProjectTasks(projectId) {
@@ -637,9 +802,22 @@
             const formContainer = document.getElementById('formBlock');
             const userInfoBlock = document.getElementById('userInfoBlock');
             const statusBar = document.getElementById('status-bar');
+            const progressBlock = document.getElementById('progressBlock'); // NEW
 
             document.getElementById('successBlock').classList.add('d-none');
-            formContainer.classList.remove('d-none');
+
+            // Toggle Main Views
+            if (mode === 'progress') {
+                formContainer.classList.add('d-none');
+                progressBlock.classList.remove('d-none');
+                // Auto Load if project selected
+                const pid = document.getElementById('projectSelect').value;
+                if (pid) fetchProgressData(pid);
+            } else {
+                formContainer.classList.remove('d-none');
+                progressBlock.classList.add('d-none');
+            }
+
             if (!document.getElementById('errorBlock').innerText) {
                 userInfoBlock.classList.remove('d-none');
             }
@@ -657,11 +835,17 @@
                 const pid = document.getElementById('projectSelect').value;
                 if (pid) fetchMyReports(pid);
             } else {
+                // Hides for BOTH 'new' and 'progress'
                 editSelector.style.display = 'none';
-                submitBtn.innerText = '發佈';
-                document.getElementById('uuid').value = '';
-                document.getElementById('contentInput').value = '';
-                document.getElementById('dateInput').valueAsDate = new Date();
+
+                if (mode === 'new') {
+                    submitBtn.innerText = '發佈';
+                    document.getElementById('uuid').value = '';
+                    document.getElementById('contentInput').value = '';
+                    document.getElementById('dateInput').valueAsDate = new Date();
+                } else if (mode === 'progress') {
+                    // Progress mode uses its own submit button logic
+                }
             }
         }
 
@@ -793,11 +977,440 @@
             document.getElementById('contentInput').value = data.content;
         }
 
-        function updateStatus(msg) {
-            const bar = document.getElementById('status-bar');
-            if (bar) bar.innerText = msg;
+
+        // --- WEEKLY PROGRESS LOGIC ---
+
+        let g_progressTasks = [];
+        let g_progressDates = [];
+        let g_progressUpdates = {}; // { "TaskName": { progress: 50, actStart: '...', actEnd: '...' } }
+
+        function fetchProgressData(projectId) {
+            const pList = document.getElementById('progressList');
+            pList.innerHTML = '<div class="text-center text-info mt-5"><div class="spinner-border" role="status"></div><div class="mt-2">正在讀取週進度資料...</div></div>';
+
+            google.script.run
+                .withSuccessHandler(res => {
+                    const data = JSON.parse(res);
+                    if (data.success) {
+                        g_progressTasks = data.tasks;
+                        g_progressDates = data.dateHeaders || [];
+                        initProgressDateSelect();
+                        renderProgressCards();
+                    } else {
+                        pList.innerHTML = `<div class="text-center text-danger mt-5">讀取失敗: ${data.message}</div>`;
+                    }
+                })
+                .withFailureHandler(err => {
+                    pList.innerHTML = `<div class="text-center text-danger mt-5">系統錯誤: ${err.message}</div>`;
+                })
+                .getProjectTasksWithHistory(projectId);
         }
 
+        function initProgressDateSelect() {
+            const sel = document.getElementById('progressDateSelect');
+            sel.innerHTML = "";
+            const today = new Date();
+            today.setHours(23, 59, 59, 999); // Include today fully
+
+            let selectedKey = "";
+            let latestPastDate = null;
+
+            if (!g_progressDates || g_progressDates.length === 0) {
+                sel.add(new Option("無日期資料", ""));
+                document.getElementById('progressList').innerHTML = '<div class="text-center text-muted mt-5">此專案尚未設定日期進度欄位</div>';
+                return;
+            }
+
+            // Logic: Find closest PAST (or today) date
+            // Assuming g_progressDates is sorted ascending (usually chronologically from sheets)
+            // We'll iterate and find the last one <= today
+
+            g_progressDates.forEach(dStr => {
+                const d = new Date(dStr);
+                if (isNaN(d.getTime())) return;
+
+                if (d <= today) {
+                    latestPastDate = dStr;
+                }
+                sel.add(new Option(dStr, dStr));
+            });
+
+            // If found a past date, use it; otherwise use the very first one (future)
+            if (latestPastDate) selectedKey = latestPastDate;
+            else if (g_progressDates.length > 0) selectedKey = g_progressDates[0];
+
+            if (selectedKey) sel.value = selectedKey;
+
+            // Should render immediately after init
+            renderProgressCards();
+
+            sel.onchange = function () { renderProgressCards(); };
+        }
+
+        function renderProgressCards() {
+            const container = document.getElementById('progressList');
+            const targetDateKey = document.getElementById('progressDateSelect').value;
+            const showAll = document.getElementById('showAllTasksSwitch').checked;
+
+            container.innerHTML = "";
+            g_progressUpdates = {};
+            updateSubmitButton();
+
+            if (!targetDateKey) return;
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const dateIdx = g_progressDates.indexOf(targetDateKey);
+            const prevDateKey = (dateIdx > 0) ? g_progressDates[dateIdx - 1] : null;
+
+            let tasksToShow = [];
+
+            g_progressTasks.forEach(t => {
+                const pStart = t.planStart ? new Date(t.planStart) : null;
+                const pEnd = t.planEnd ? new Date(t.planEnd) : null;
+                const aStart = t.actStart ? new Date(t.actStart) : null;
+                const aEnd = t.actEnd ? new Date(t.actEnd) : null;
+
+                let isRelevant = false;
+                let priority = 0;
+                let statusLabel = "";
+                let statusColor = "secondary";
+
+                if (aEnd) {
+                    statusLabel = "已完成"; statusColor = "success";
+                    if (showAll) { isRelevant = true; priority = 1; }
+                } else {
+                    if (pEnd && pEnd < today) {
+                        isRelevant = true; priority = 10;
+                        statusLabel = "落後 / 逾期"; statusColor = "danger";
+                    } else if (aStart) {
+                        isRelevant = true; priority = 8;
+                        statusLabel = "進行中"; statusColor = "primary";
+                    } else if (pStart && pStart <= today) {
+                        isRelevant = true; priority = 5;
+                        statusLabel = "應進行"; statusColor = "warning";
+                    } else {
+                        statusLabel = "未開始";
+                        if (showAll) { isRelevant = true; priority = 0; }
+                    }
+                }
+
+                if (isRelevant) {
+                    tasksToShow.push({ task: t, pri: priority, label: statusLabel, color: statusColor });
+                }
+            });
+
+            tasksToShow.sort((a, b) => b.pri - a.pri);
+
+            if (tasksToShow.length === 0) {
+                container.innerHTML = '<div class="text-center text-muted mt-5">本週無須回報項目 (🎉)</div>';
+                return;
+            }
+
+            tasksToShow.forEach(item => {
+                const t = item.task;
+                let lastVal = (prevDateKey && t.progressHistory[prevDateKey]) ? t.progressHistory[prevDateKey] : 0;
+                let currentVal = t.progressHistory[targetDateKey];
+                let initialVal = (currentVal !== undefined) ? currentVal : lastVal;
+
+                // Fix percentage display if value is decimal (e.g. 0.95 -> 95)
+                if (lastVal > 0 && lastVal <= 1) lastVal = Number((lastVal * 100).toFixed(2));
+                if (initialVal > 0 && initialVal <= 1) initialVal = Number((initialVal * 100).toFixed(2));
+
+                // 100% Carryover: If current is empty/0, but historical record reached 100, assume 100
+                if (!initialVal || initialVal === 0) {
+                    let hasCompletedBefore = false;
+                    for (let dateKey in t.progressHistory) {
+                        let hVal = t.progressHistory[dateKey];
+                        if (hVal >= 1 || hVal === 100) { hasCompletedBefore = true; break; }
+                    }
+                    if (hasCompletedBefore) initialVal = 100;
+                }
+
+                // Card UI
+                const card = document.createElement('div');
+                card.className = `card mb-2 border-${item.color} shadow-sm`;
+                card.style.backgroundColor = '#2c3034';
+
+                card.innerHTML = `
+                <div class="card-body p-2">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <h6 class="card-title text-white mb-1 me-2" style="word-break: break-all;">${t.name}</h6>
+                        <span class="badge bg-${item.color}" style="white-space: nowrap;">${item.label}</span>
+                    </div>
+                    <div class="text-secondary small mb-2">${t.planStart} ~ ${t.planEnd}</div>
+                    
+                    <div class="d-flex align-items-center mb-2">
+                        <div class="me-3 text-secondary" style="font-size:0.85em;">上週: ${lastVal}%</div>
+                        <div class="flex-grow-1">
+                             <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-dark text-info border-secondary" onclick="openCalc(this.getAttribute('data-task'))" data-task="${t.name}" style="cursor:pointer;" title="開啟計算機">
+                                    📝
+                                </span>
+                                <input type="number" id="inp_${t.name}" class="form-control text-center fw-bold fs-5" 
+                                    min="0" max="100" 
+                                    value="${initialVal}" 
+                                    onchange="onProgressChange('${t.name}', this.value)"
+                                    style="background-color: #495057; color: #fff; border: 1px solid #6c757d;">
+                                <span class="input-group-text bg-transparent text-white border-0">%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-sm btn-link text-decoration-none text-light p-0" type="button" onclick="toggleDetails(this)">🔻 詳細日期</button>
+                    <div class="mt-2 text-white" style="display:none; border-top: 1px solid #444; padding-top: 5px;">
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <label class="small text-secondary">實際開始</label>
+                                <input type="date" class="form-control form-control-sm bg-dark text-white border-secondary"
+                                    value="${formatDateForInput(t.actStart)}"
+                                    onchange="onDateChange('${t.name}', 'actStart', this.value)">
+                            </div>
+                            <div class="col-6">
+                                <label class="small text-secondary">實際完成</label>
+                                <input type="date" class="form-control form-control-sm bg-dark text-white border-secondary"
+                                    value="${formatDateForInput(t.actEnd)}"
+                                    onchange="onDateChange('${t.name}', 'actEnd', this.value)">
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+                container.appendChild(card);
+            });
+        }
+
+        function formatDateForInput(d) { return d ? d.replace(/\//g, '-') : ''; }
+        function toggleDetails(btn) {
+            const div = btn.nextElementSibling;
+            const shown = div.style.display !== 'none';
+            div.style.display = shown ? 'none' : 'block';
+            btn.innerText = shown ? '🔻 詳細日期' : '🔺 收起詳細日期';
+        }
+        function onProgressChange(taskName, val) {
+            let num = parseInt(val);
+            if (isNaN(num)) num = 0; if (num < 0) num = 0; if (num > 100) num = 100;
+            if (!g_progressUpdates[taskName]) g_progressUpdates[taskName] = {};
+            g_progressUpdates[taskName].progress = num;
+            g_progressUpdates[taskName].dateKey = document.getElementById('progressDateSelect').value;
+            updateSubmitButton();
+        }
+        function onDateChange(taskName, f, v) {
+            if (!g_progressUpdates[taskName]) g_progressUpdates[taskName] = {};
+            g_progressUpdates[taskName][f] = v.replace(/-/g, '/');
+            updateSubmitButton();
+        }
+        function updateSubmitButton() {
+            const c = Object.keys(g_progressUpdates).length;
+            document.getElementById('progress-update-count').innerText = c;
+            document.getElementById('btnSubmitProgress').style.display = c > 0 ? 'block' : 'none';
+        }
+        function submitProgressBatch() {
+            const updates = [];
+            for (let k in g_progressUpdates) { updates.push({ taskName: k, ...g_progressUpdates[k] }); }
+            if (updates.length === 0) return;
+
+            const btn = document.getElementById('btnSubmitProgress');
+            btn.disabled = true; btn.innerText = "⏳ 處理中...";
+            const pid = document.getElementById('projectSelect').value;
+            const uid = document.getElementById('lineUserId').value;
+
+            google.script.run
+                .withSuccessHandler(res => {
+                    try {
+                        const r = JSON.parse(res);
+                        if (r.success) {
+                            updateStatus(`✅ 成功更新 ${r.count} 筆資料！`);
+                            g_progressUpdates = {};
+
+                            // Visual Feedback
+                            const btn = document.getElementById('btnSubmitProgress');
+                            btn.innerText = "✅ 更新成功";
+
+                            setTimeout(() => {
+                                updateSubmitButton();
+                                fetchProgressData(pid);
+                                btn.disabled = false;
+                                btn.innerText = "🚀 送出更新 (0)";
+                            }, 1000);
+                        } else {
+                            alert("更新失敗: " + r.message);
+                            const btn = document.getElementById('btnSubmitProgress');
+                            btn.disabled = false; btn.innerText = "🚀 送出更新 (0)";
+                        }
+                    } catch (ex) {
+                        alert("前端處理回應錯誤: " + ex.message + "\n回應內容: " + res);
+                        const btn = document.getElementById('btnSubmitProgress');
+                        btn.disabled = false; btn.innerText = "🚀 送出更新 (0)";
+                    }
+                })
+                .withFailureHandler(e => { alert("更新錯誤:" + e.message); btn.disabled = false; })
+                .updateTaskProgress(pid, updates, uid);
+        }
+
+        // --- CALCULATOR LOGIC ---
+        let g_currentCalcTask = "";
+        let g_calcItems = []; // [{name, weight, progress}]
+
+        function openCalc(taskName) {
+            g_currentCalcTask = taskName;
+
+            // New Header Structure
+            const headerHtml = `
+                <div class="w-100">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="h5 mb-0">子項目計算機</span>
+                    </div>
+                    <div class="text-info small mt-1 text-truncate">${taskName}</div>
+                    <div class="calc-weight-bar-bg" title="權重分配進度">
+                        <div id="calcWeightBar" class="calc-weight-bar-fill" style="width: 0%"></div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('calcModalTitle').innerHTML = headerHtml;
+
+            // Fetch saved breakdown
+            const listDiv = document.getElementById('calcItemsList');
+            listDiv.innerHTML = '<div class="text-center p-3">讀取中...</div>';
+
+            // Clear Footer Totals temporarily
+            document.getElementById('calcTotalWeight').innerText = "0";
+            document.getElementById('calcResult').innerText = "0.0";
+            document.getElementById('calcWeightWarning').style.display = 'none';
+
+            const pid = document.getElementById('projectSelect').value;
+            var modal = new bootstrap.Modal(document.getElementById('calcModal'));
+            modal.show();
+
+            google.script.run
+                .withSuccessHandler(res => {
+                    const r = JSON.parse(res);
+                    if (r.success && r.data) {
+                        try {
+                            g_calcItems = JSON.parse(r.data);
+                        } catch (e) { g_calcItems = []; }
+                    } else {
+                        g_calcItems = []; // Default empty
+                    }
+                    renderCalcItems();
+                })
+                .getTaskBreakdown(pid, taskName);
+        }
+
+        function renderCalcItems() {
+            const list = document.getElementById('calcItemsList');
+            list.innerHTML = "";
+            let totalWeight = 0;
+            let totalProg = 0;
+
+            if (g_calcItems.length === 0) {
+                addCalcItem(); // Ensure at least one
+                return; // addCalcItem calls render
+            }
+
+            g_calcItems.forEach((item, idx) => {
+                const w = parseFloat(item.weight) || 0;
+                totalWeight += w;
+                const p = parseFloat(item.progress) || 0;
+                totalProg += (w * p / 100);
+
+                const row = document.createElement('div');
+                row.className = "calc-item-card";
+                row.innerHTML = `
+                    <button class="btn btn-sm text-danger border-0 calc-delete-btn fs-5" onclick="removeCalcItem(${idx})" title="刪除此項">
+                        &times;
+                    </button>
+                    <div class="mb-2 pe-4">
+                        <input type="text" class="form-control form-control-sm bg-dark text-white border-secondary" 
+                            placeholder="輸入子項目名稱..." value="${item.name}" 
+                            onchange="updateCalcItem(${idx}, 'name', this.value)">
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-secondary text-white border-0">權重(%)</span>
+                                <input type="number" class="form-control bg-dark text-white border-secondary text-center" 
+                                    value="${item.weight !== 0 ? item.weight : ''}" min="0" max="100" placeholder="0"
+                                    onchange="updateCalcItem(${idx}, 'weight', this.value)">
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-secondary text-white border-0">進度(%)</span>
+                                <input type="number" class="form-control bg-dark text-white border-secondary text-center" 
+                                    value="${item.progress !== 0 ? item.progress : ''}" min="0" max="100" placeholder="0"
+                                    onchange="updateCalcItem(${idx}, 'progress', this.value)">
+                            </div>
+                        </div>
+                    </div>
+                 `;
+                list.appendChild(row);
+            });
+
+            // Update Footer
+            document.getElementById('calcTotalWeight').innerText = totalWeight;
+            document.getElementById('calcResult').innerText = totalProg.toFixed(1);
+
+            const warn = document.getElementById('calcWeightWarning');
+            // Show warning if NOT 100 (allow small float error)
+            const isFull = Math.abs(totalWeight - 100) < 0.1;
+
+            if (!isFull) {
+                warn.style.display = 'inline';
+                warn.innerText = totalWeight < 100 ? "(不足 100%)" : "(超過 100%)";
+                warn.className = totalWeight < 100 ? "ms-2 text-warning small" : "ms-2 text-danger small";
+            } else {
+                warn.style.display = 'none';
+            }
+
+            // Update Visual Weight Bar
+            const bar = document.getElementById('calcWeightBar');
+            if (bar) {
+                bar.style.width = Math.min(totalWeight, 100) + "%";
+                bar.className = 'calc-weight-bar-fill';
+                if (totalWeight > 100) bar.classList.add('over');
+                else if (totalWeight < 100) bar.classList.add('under');
+                else bar.classList.add('exact');
+            }
+        }
+
+        function addCalcItem() {
+            g_calcItems.push({ name: "", weight: 0, progress: 0 });
+            renderCalcItems();
+        }
+
+        function removeCalcItem(idx) {
+            g_calcItems.splice(idx, 1);
+            renderCalcItems();
+        }
+
+        function updateCalcItem(idx, field, val) {
+            if (field === 'weight' || field === 'progress') {
+                g_calcItems[idx][field] = parseFloat(val) || 0;
+            } else {
+                g_calcItems[idx][field] = val;
+            }
+            renderCalcItems(); // Re-calc total
+        }
+
+        function applyCalcResult() {
+            const totalVal = parseFloat(document.getElementById('calcResult').innerText);
+            const pid = document.getElementById('projectSelect').value;
+
+            // 1. Update Input
+            const inp = document.getElementById('inp_' + g_currentCalcTask);
+            if (inp) {
+                inp.value = Math.round(totalVal);
+                onProgressChange(g_currentCalcTask, Math.round(totalVal));
+            }
+
+            // 2. Save Breakdown to Backend
+            google.script.run.saveTaskBreakdown(pid, g_currentCalcTask, JSON.stringify(g_calcItems));
+
+            // Close Modal
+            const el = document.getElementById('calcModal');
+            const modal = bootstrap.Modal.getInstance(el);
+            modal.hide();
+        }
         function showError(msg) {
             const block = document.getElementById('errorBlock');
             block.innerText = msg;
