@@ -5,13 +5,15 @@
     <base target="_top">
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>PCM 回報系統</title>
+    <title>PCM 回報系統 (測試版)</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body {
             background-color: #212529;
             color: #f8f9fa;
             padding-bottom: 50px;
+            border-top: 5px solid #ffc107;
+            /* Yellow Border for Test Env */
         }
 
         .form-control,
@@ -56,8 +58,7 @@
         }
 
         .report-card.selected {
-            border: 2px solid #0d6efd;
-            /* Blue for Prod, Warning was yellow */
+            border: 2px solid #ffc107;
             background-color: #333;
         }
 
@@ -90,9 +91,9 @@
 <body>
 
     <div class="container">
-        <div id="status-bar">系統載入中...</div>
+        <div id="status-bar">測試系統載入中...</div>
 
-        <h3 class="mb-4 text-center">📋 專案回報</h3>
+        <h3 class="mb-4 text-center text-warning">🚧 專案回報 (測試)</h3>
 
         <div id="userInfoBlock" class="alert alert-secondary">
             <span id="userNameDisplay">驗證身分中...</span>
@@ -113,7 +114,7 @@
 
         <!-- NEW: Edit Mode Selector (Card View) -->
         <div id="edit-selector-container" class="mb-3" style="display: none;">
-            <label class="form-label text-info">選擇要修改的項目 (最近 20 筆)</label>
+            <label class="form-label text-warning">選擇要修改的項目 (最近 20 筆)</label>
             <div id="reportList" style="max-height: 300px; overflow-y: auto;">
                 <div class="text-center text-muted p-3">載入中...</div>
             </div>
@@ -202,17 +203,16 @@
 
                 <!-- Helper text -->
                 <div class="mb-3 d-flex justify-content-center align-items-center position-relative">
-                    <small class="text-muted" id="status-bar-bottom">準備就緒</small>
+                    <small class="text-muted" id="status-bar-bottom">準備就緒 (Test)</small>
                     <span class="position-absolute end-0" onclick="toggleDebug()"
                         style="cursor: pointer; opacity: 0.3; font-size: 1.2rem;">ℹ️</span>
                 </div>
 
                 <!-- Submit Btn -->
                 <div class="d-grid gap-2">
-                    <button type="button" id="submitBtn" class="btn btn-primary btn-lg fw-bold shadow-sm">
-                        發佈
+                    <button type="button" id="submitBtn" class="btn btn-warning btn-lg fw-bold shadow-sm">
+                        發佈 (測試)
                     </button>
-                    <!-- Button Changed to Primary (Blue) for Prod -->
                 </div>
 
                 <!-- DEBUG CONSOLE (Hidden by default) -->
@@ -271,38 +271,23 @@
 
         document.addEventListener("DOMContentLoaded", function () {
             try {
-                // Init UI
                 document.getElementById('dateInput').valueAsDate = new Date();
+
+                // Init UI Logic Immediately
                 setupFormLogic();
+                // alert("系統載入完成，按鈕監聽已啟動"); // Debug Alert
 
-                // Debug Info
-                let debugMsg = "Load: ";
-                if (MAGIC_UID) debugMsg += "UIDlen=" + MAGIC_UID.length;
-                else debugMsg += "NoUID";
-                debugLog(debugMsg);
-
-                // Simple Robust Check
-                // Note: GAS Template replaces <?= serverUid ?> with actual string
-                // If not replaced (local dev), it remains "<?= serverUid ?>"
-                const hasServerUid = MAGIC_UID &&
-                    MAGIC_UID.trim() !== "" &&
-                    !MAGIC_UID.includes("serverUid");
-
-                if (hasServerUid) {
-                    updateStatus("🟢 讀取連結資料中...");
-                    fetchConfig(MAGIC_UID); // Direct call, no verify needed for Magic Link
-                    // Init LIFF silently just in case features are needed, but don't blocking-wait
+                if (MAGIC_UID && MAGIC_UID.trim() !== "") {
+                    updateStatus("🟢 使用專屬連結登入"); // User noted this text
+                    debugLog("Server UID Found");
+                    fetchConfig(MAGIC_UID);
                     initLiffSilently();
                 } else {
-                    debugLog("Fallback to LIFF Login");
-                    updateStatus("🟠 正在驗證身分...");
-                    // Only try LIFF if Magic Link failed
+                    updateStatus("🟠 無參數，嘗試 LIFF 連線...");
                     tryLiffLogin();
                 }
             } catch (e) {
-                console.error(e);
-                debugLog("InitErr: " + e.message);
-                alert("初始化錯誤: " + e.message);
+                debugLog("Init Error: " + e.message);
             }
         });
 
@@ -314,77 +299,57 @@
         }
 
         function tryLiffLogin() {
-            if (typeof liff === 'undefined') {
-                debugLog("LIFF SDK Missing");
-                showError("無法載入 LINE 元件，請檢查網路或是重新開啟");
-                return;
+            if (typeof liff !== 'undefined') {
+                liff.init({ liffId: LIFF_ID }).then(() => {
+                    if (!liff.isLoggedIn()) {
+                        liff.login();
+                    } else {
+                        liff.getProfile().then(profile => {
+                            fetchConfig(profile.userId);
+                        });
+                    }
+                }).catch(err => {
+                    showError("無法識別身分。請在 LINE 聊天室輸入「回報」來取得專屬連結。");
+                });
             }
-
-            debugLog("LIFF Init Start...");
-            // Timeout Race
-            const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("Init Config Timeout")), 10000));
-
-            Promise.race([
-                liff.init({ liffId: LIFF_ID }),
-                timeout
-            ]).then(() => {
-                debugLog("LIFF Init OK. LoggedIn: " + liff.isLoggedIn());
-                if (!liff.isLoggedIn()) {
-                    debugLog("Not Logged In -> redirect to login");
-                    liff.login();
-                } else {
-                    liff.getProfile().then(profile => {
-                        debugLog("Profile: " + profile.userId);
-                        fetchConfig(profile.userId);
-                    }).catch(e => {
-                        debugLog("Profile Error: " + e.message);
-                        showError("無法取得用戶資料: " + e.message);
-                    });
-                }
-            }).catch(err => {
-                debugLog("LIFF Init Fail: " + err.message);
-                showError("身分驗證失敗 (Init): " + err.message + "\n請在聊天室輸入「回報」重新取得連結");
-            });
         }
 
-        // Global User ID Cache
-        let g_currentUserId = "";
-
         function fetchConfig(userId) {
-            g_currentUserId = userId; // Cache it
-            const uidField = document.getElementById('lineUserId');
-            const uidField2 = document.getElementById('userId');
-            if (uidField) uidField.value = userId;
-            if (uidField2) uidField2.value = userId;
-
+            document.getElementById('lineUserId').value = userId; // Bind hidden
+            document.getElementById('userId').value = userId;     // Bind extra hidden for safety
             debugLog("Fetching config for: " + userId);
 
             google.script.run
                 .withSuccessHandler(onConfigLoaded)
                 .withFailureHandler(onFailure)
-                .getLiffConfig(userId);
+                .getLiffConfigTest(userId);
         }
 
         function onConfigLoaded(configStr) {
             let config;
             try {
-                debugLog("Config Raw: " + configStr);
+                debugLog("Config Raw: " + configStr); // Debug see what we get
                 config = JSON.parse(configStr);
             } catch (e) {
                 config = { success: false, message: "JSON Parse Error: " + e.message };
             }
 
             if (config.error || !config.success) {
+                // If backend caught error, it might return obj directly if not handled strictly, 
+                // but we stringified success path. Failure path in catch might still be obj?
+                // backend catch returns obj using try-catch I added? 
+                // Wait, backend catch block returns object. I should stringify that too.
                 showError((config.message || "身分驗證失敗，請確認綁定狀態"));
                 return;
             }
 
+            // ... Rest of logic stays same as 'config' is now an object ...
             debugLog("Config Parsed OK. User: " + config.userName);
 
             // Update UI with User Info
             document.getElementById('userInfoBlock').classList.remove('alert-secondary');
             document.getElementById('userInfoBlock').classList.add('alert-info');
-            document.getElementById('userNameDisplay').innerText = `你好，${config.userName}`;
+            document.getElementById('userNameDisplay').innerText = `你好，${config.userName} (測試)`;
 
             // Fill Project Select
             const pSelect = document.getElementById('projectSelect');
@@ -400,12 +365,14 @@
                     if (idx === 0) firstProjectId = p.id;
                 });
 
-                // Load tasks
+                // Load tasks for the first project initially (RESTORED FUNCTIONALITY)
                 if (firstProjectId) {
                     loadProjectTasks(firstProjectId);
+                    // If in Edit Mode, auto-fetch report history
                     if (currentMode === 'edit') fetchMyReports(firstProjectId);
                 }
 
+                // Add change listener
                 pSelect.addEventListener('change', function () {
                     const pid = this.value;
                     loadProjectTasks(pid);
@@ -427,8 +394,11 @@
             const tSelect = document.getElementById('taskSelect');
             const taskBlock = document.getElementById('taskBlock');
 
-            tSelect.innerHTML = '<option disabled selected>讀取中 (約需 10 秒)...</option>';
+            // UI Reset
+            tSelect.innerHTML = '<option disabled selected>努力讀取中 (約需 10 秒)...</option>';
+            // Reset to Select Mode (in case it was Input Mode)
             if (tSelect.tagName === 'INPUT') {
+                // Replace Input back to Select
                 const newSelect = document.createElement('select');
                 newSelect.id = 'taskSelect';
                 newSelect.className = 'form-select';
@@ -440,31 +410,38 @@
                 taskBlock.classList.remove('d-none');
             }
 
+            // Flag to prevent double execution
             let isResolved = false;
 
+            // 1. Fallback Timer (15 seconds)
             const fallbackTimer = setTimeout(() => {
                 if (!isResolved) {
                     isResolved = true;
+                    // Switch to Input
                     const tContainer = document.getElementById('taskSelect').parentNode;
                     const input = document.createElement('input');
                     input.type = 'text';
-                    input.id = 'taskSelect';
+                    input.id = 'taskSelect'; // Keep ID for submit logic compatibility
                     input.className = 'form-control';
                     input.placeholder = '讀取逾時，請直接輸入工項名稱...';
 
                     const oldEl = document.getElementById('taskSelect');
                     tContainer.replaceChild(input, oldEl);
+                    // alert("讀取過久，已切換為手動輸入模式。"); // Optional alert
                 }
             }, 15000);
 
+            // 2. Try Backend Load
             try {
                 if (typeof google !== 'undefined' && google.script) {
                     google.script.run
                         .withSuccessHandler(rawResult => {
-                            if (isResolved) return;
+                            if (isResolved) return; // Too late
 
                             let result;
-                            try { result = JSON.parse(rawResult); } catch (e) { console.error(e); }
+                            try {
+                                result = JSON.parse(rawResult);
+                            } catch (e) { console.error(e); }
 
                             if (!result || !result.success || !result.tasks) {
                                 console.warn("Backend load empty", result);
@@ -472,6 +449,7 @@
                                 return;
                             }
 
+                            // Success!
                             isResolved = true;
                             clearTimeout(fallbackTimer);
                             g_allTasks = result.tasks.map(t => ({
@@ -493,6 +471,7 @@
                     throw new Error("Local Environment");
                 }
             } catch (e) {
+                console.warn("Google Script API missing, switching to CSV Fallback immediately.");
                 loadTasksFromCSV(tSelect, fallbackTimer);
             }
         }
@@ -503,12 +482,13 @@
                 header: true,
                 skipEmptyLines: true,
                 complete: function (results) {
+                    // Check if already resolved by backend
                     if (isResolved) return;
                     isResolved = true;
                     clearTimeout(fallbackTimer);
 
                     const rows = results.data;
-                    g_allTasks = [];
+                    g_allTasks = []; // Global Storage
 
                     if (!rows || rows.length === 0) {
                         tSelect.innerHTML = '<option disabled>查無數據</option>';
@@ -518,17 +498,23 @@
                     rows.forEach(r => {
                         const name = r['任務名稱'] || r['TaskName'] || r['Name'];
                         if (!name) return;
+
                         const category = r['分類'] || r['Category'] || '';
+                        const planStartStr = r['開始時間'] || r['Start'];
+                        const planEndStr = r['結束日期'] || r['End'];
+                        const actStartStr = r['實際開始時間'] || r['ActualStart'];
+                        const actEndStr = r['實際完成時間'] || r['ActualEnd'];
 
                         // Simple Date Parse
-                        const pStart = (r['開始時間'] || r['Start']) ? new Date(r['開始時間'] || r['Start']) : null;
-                        const pEnd = (r['結束日期'] || r['End']) ? new Date(r['結束日期'] || r['End']) : null;
-                        const aStart = (r['實際開始時間'] || r['ActualStart']) ? new Date(r['實際開始時間'] || r['ActualStart']) : null;
-                        const aEnd = (r['實際完成時間'] || r['ActualEnd']) ? new Date(r['實際完成時間'] || r['ActualEnd']) : null;
+                        const pStart = planStartStr ? new Date(planStartStr) : null;
+                        const pEnd = planEndStr ? new Date(planEndStr) : null;
+                        const aStart = actStartStr ? new Date(actStartStr) : null;
+                        const aEnd = actEndStr ? new Date(actEndStr) : null;
 
                         g_allTasks.push({ name, category, pStart, pEnd, aStart, aEnd });
                     });
 
+                    // Initial Render
                     renderTaskOptions();
                 },
                 error: function (err) {
@@ -539,13 +525,16 @@
             });
         }
 
+        // RESTORED: Advanced Task Rendering Logic
         function renderTaskOptions() {
             const tSelect = document.getElementById('taskSelect');
-            if (!tSelect || tSelect.tagName !== 'SELECT') return;
+            if (!tSelect || tSelect.tagName !== 'SELECT') return; // Should be select
 
+            // Get Current Filtering Category
             const catSelect = document.getElementById('categorySelect');
             const selectedCat = catSelect ? catSelect.value : '';
 
+            // Filter tasks based on selected category
             let filteredTasks = g_allTasks;
             if (selectedCat) {
                 filteredTasks = g_allTasks.filter(t => t.category === selectedCat);
@@ -577,14 +566,34 @@
             filteredTasks.forEach(t => {
                 const { name, pStart, pEnd, aStart, aEnd } = t;
 
-                if (aEnd) { groupDone.push(t); return; }
+                // Done
+                if (aEnd) {
+                    groupDone.push(t);
+                    return;
+                }
 
+                // Overdue
                 const isLateFinish = pEnd && today > pEnd;
                 const isLateStart = pStart && today > pStart && !aStart;
 
-                if (isLateFinish || isLateStart) { groupOverdue.push(t); return; }
-                if (aStart && !aEnd) { groupOngoing.push(t); return; }
-                if (pStart && pStart > today) { groupUpcoming.push(t); return; }
+                if (isLateFinish || isLateStart) {
+                    groupOverdue.push(t);
+                    return;
+                }
+
+                // Ongoing
+                if (aStart && !aEnd) {
+                    groupOngoing.push(t);
+                    return;
+                }
+
+                // Upcoming
+                if (pStart && pStart > today) {
+                    groupUpcoming.push(t);
+                    return;
+                }
+
+                // Others
                 groupOthers.push(t);
             });
 
@@ -601,13 +610,17 @@
                 tSelect.appendChild(grp);
             };
 
-            appendGroup("🔴 🔴 異常 / 逾期", groupOverdue);
+            appendGroup("🔴 🔴 異常 / 逾期", groupOverdue); // Emphasize
             appendGroup("🔵 進行中", groupOngoing);
             appendGroup("🟡 即將開始", groupUpcoming);
             appendGroup("🟢 已完成", groupDone);
             appendGroup("⚪ 其他", groupOthers);
         }
 
+        // ==========================================
+        // NEW: UI Logic: Tabs & Modes
+        // ==========================================
+        // NEW: Manual Reset function to avoid reload white screen
         function resetForm() {
             // 1. Hide Success
             document.getElementById('successBlock').classList.add('d-none');
@@ -616,16 +629,15 @@
             document.getElementById('contentInput').value = '';
             document.getElementById('taskSelect').value = '';
 
-            // 3. Restore UI Elements
-            const tabs = document.getElementById('modeTabs');
-            if (tabs) tabs.style.display = 'flex'; // Restore Tabs
-
+            // 3. Reset Button
             const btn = document.getElementById('submitBtn');
             btn.disabled = false;
-            btn.innerText = (currentMode === 'edit') ? "確認修改" : "發佈";
+            btn.innerText = (currentMode === 'edit') ? "確認修改 (測試)" : "發佈 (測試)";
 
-            // 4. Force Switch to Current Mode (Reset UI & Selector visibility)
+            // 4. Force Switch to Current Mode (Reset UI)
             switchMode(currentMode);
+
+            // 5. If Edit Mode, maybe refetch list?
             if (currentMode === 'edit') {
                 const pid = document.getElementById('projectSelect').value;
                 if (pid) fetchMyReports(pid);
@@ -634,67 +646,103 @@
 
         function switchMode(mode) {
             currentMode = mode;
+
+            // 1. Reset UI State
             const formContainer = document.getElementById('formBlock');
             const userInfoBlock = document.getElementById('userInfoBlock');
             const statusBar = document.getElementById('status-bar');
 
+            // HIDE Static Success Block
             document.getElementById('successBlock').classList.add('d-none');
+
+            // Restore Form
             formContainer.classList.remove('d-none');
+            // Don't show userInfoBlock if it was hidden by error
             if (!document.getElementById('errorBlock').innerText) {
                 userInfoBlock.classList.remove('d-none');
             }
             if (statusBar) statusBar.style.display = 'block';
 
+            // 2. Update Tab UI
             document.querySelectorAll('#modeTabs .nav-link').forEach(el => el.classList.remove('active'));
             document.getElementById('tab-' + mode).classList.add('active');
 
             const submitBtn = document.getElementById('submitBtn');
+            // 3. Toggle Mode Specifics
             const editSelector = document.getElementById('edit-selector-container');
 
             if (mode === 'edit') {
                 editSelector.style.display = 'block';
-                submitBtn.innerText = '確認修改';
+                submitBtn.innerText = '確認修改 (測試)';
+
+                // Trigger fetch if project selected
                 const pid = document.getElementById('projectSelect').value;
-                if (pid) fetchMyReports(pid);
+                if (pid) {
+                    fetchMyReports(pid);
+                } else {
+                    // Wait for project select
+                }
             } else {
                 editSelector.style.display = 'none';
-                submitBtn.innerText = '發佈';
+                submitBtn.innerText = '發佈 (測試)';
+
+                // Reset Form (Except Project & User)
                 document.getElementById('uuid').value = '';
                 document.getElementById('contentInput').value = '';
                 document.getElementById('dateInput').valueAsDate = new Date();
+
+                // Reset to "New" state default? maybe clear task?
             }
         }
 
         function fetchMyReports(projectId) {
             const uid = document.getElementById('lineUserId').value;
-            if (!uid) { return; }
+            // DEBUG ALERT
+            alert("開始讀取紀錄...\nUser: " + uid + "\nProject: " + projectId);
+
+            if (!uid) {
+                alert("錯誤：沒有 User ID");
+                return;
+            }
 
             const listDiv = document.getElementById('reportList');
             listDiv.innerHTML = '<div class="text-center text-warning p-3">資料載入中...</div>';
+            // rSelect.disabled = true; // No longer needed
 
             google.script.run
                 .withSuccessHandler(responseStr => {
                     let response;
-                    try { response = JSON.parse(responseStr); } catch (e) {
-                        response = { success: false, message: "JSON Parse Fail" };
+                    try {
+                        response = JSON.parse(responseStr);
+                    } catch (e) {
+                        response = { success: false, message: "JSON Parse Fail: " + e.message };
                     }
+
+                    debugLog("Ret Success. Status=" + response.success);
+                    debugLog("Ret Success. Status=" + response.success);
                     if (response.success) {
+                        debugLog("Count: " + response.posts.length);
                         myReportsCache = response.posts;
                         renderReportOptions(response.posts);
                     } else {
                         listDiv.innerHTML = '<div class="text-center text-danger">載入失敗: ' + response.message + '</div>';
+                        debugLog("Load Fail: " + response.message);
                     }
                 })
                 .withFailureHandler(err => {
                     listDiv.innerHTML = '<div class="text-center text-danger p-3">載入失敗: ' + err.message + '</div>';
+                    alert('API 呼叫致命失敗: ' + err.message);
                 })
-                .getMyRecentBulletins({ projectId: projectId, lineUserId: uid });
+                .getMyRecentBulletinsTest({ projectId: projectId, lineUserId: uid });
         }
 
         function renderReportOptions(posts) {
             try {
                 const listDiv = document.getElementById('reportList');
-                if (!listDiv) return;
+                if (!listDiv) {
+                    console.error("Fatal: #reportList not found");
+                    return;
+                }
                 listDiv.innerHTML = '';
 
                 if (!posts || posts.length === 0) {
@@ -706,21 +754,31 @@
                     const card = document.createElement('div');
                     card.className = 'report-card';
                     card.onclick = (e) => {
+                        // Prevent triggering if clicking a button inside (if any)
                         if (e.target.tagName === 'BUTTON') return;
+
+                        // Highlight logic
                         document.querySelectorAll('.report-card').forEach(c => c.classList.remove('selected'));
                         card.classList.add('selected');
+
                         loadReportData(index);
                     };
 
-                    let contentPreview = (p.content || "").substring(0, 50);
+                    // Safe Truncate content
+                    let contentPreview = (p.content || "").substring(0, 50); // increased preview
+                    // Safe Date logic - Handle "YYYY-MM-DD" or similar
                     let dateStr = "??-??";
                     if (p.date && typeof p.date === 'string' && p.date.length >= 10) {
                         dateStr = p.date.slice(5);
-                    } else if (p.date) dateStr = String(p.date);
+                    } else if (p.date) {
+                        dateStr = String(p.date);
+                    }
 
+                    // Safe Type/Item
                     let typeLabel = p.type || "未分類";
                     let itemLabel = p.item ? `[${p.item}] ` : "";
 
+                    // Card HTML
                     let html = `
                     <div class="d-flex justify-content-between align-items-start">
                         <div class="report-info">
@@ -732,70 +790,58 @@
                         ${itemLabel} ${contentPreview}
                     </div>
                 `;
+
                     card.innerHTML = html;
                     listDiv.appendChild(card);
                 });
             } catch (e) {
                 console.error("Render Error:", e);
+                const listDiv = document.getElementById('reportList');
+                if (listDiv) listDiv.innerHTML = '<div class="text-danger p-2">清單渲染失敗: ' + e.message + '</div>';
             }
         }
 
         function loadReportData(index) {
             if (index === "" || index === "loading") return;
             const data = myReportsCache[index];
-            if (!data) {
-                debugLog("Load Data Fail: Index " + index + " not found");
-                return;
-            }
+            if (!data) return;
 
-            debugLog("Loading Report: " + index + ", UUID=" + data.uuid); // Critical Debug
-
-            const uuidField = document.getElementById('uuid');
-            uuidField.value = data.uuid || ""; // Ensure empty string if undefined
-
-            if (!uuidField.value) {
-                debugLog("WARNING: UUID is empty in data source!");
-                alert("警告：此項目資料異常 (缺少 UUID)，無法進行修改。\n請嘗試選擇其他項目或是聯繫管理員。");
-            }
-
+            document.getElementById('uuid').value = data.uuid;
             document.getElementById('dateInput').value = data.date;
             document.getElementById('typeSelect').value = data.type;
-            document.getElementById('categorySelect').value = data.category;
 
-            // Scroll to Form Top (RESTORED FIX)
-            const formBlock = document.getElementById('formBlock');
-            if (formBlock) {
-                const y = formBlock.getBoundingClientRect().top + window.scrollY - 60;
-                window.scrollTo({ top: y, behavior: 'smooth' });
-            }
-
-            // Trigger Type Logic
+            // Trigger Type Logic to show category/task blocks
             const newTypeSelect = document.getElementById('typeSelect');
             newTypeSelect.dispatchEvent(new Event('change'));
 
-            // Trigger Category Logic
+            document.getElementById('categorySelect').value = data.category;
+            // Trigger Category Logic (Task Filter)
             const catSelect = document.getElementById('categorySelect');
             catSelect.dispatchEvent(new Event('change'));
 
+            // Set Task Item (Async handling)
             setTimeout(() => {
                 const tSelect = document.getElementById('taskSelect');
                 if (tSelect.tagName === 'SELECT') {
-                    if (data.item) {
-                        let exists = Array.from(tSelect.options).some(o => o.value === data.item);
-                        if (!exists) tSelect.add(new Option(data.item, data.item));
-                        tSelect.value = data.item;
+                    // Check if option exists
+                    let exists = Array.from(tSelect.options).some(o => o.value === data.item);
+                    if (!exists && data.item) {
+                        tSelect.add(new Option(data.item, data.item));
                     }
+                    tSelect.value = data.item;
                 } else {
                     tSelect.value = data.item;
                 }
-            }, 500);
+            }, 500); // Wait for renderTaskOptions
 
             document.getElementById('contentInput').value = data.content;
         }
 
+        // ==========================================
+        // UI Helpers
+        // ==========================================
         function updateStatus(msg) {
-            const bar = document.getElementById('status-bar');
-            if (bar) bar.innerText = msg;
+            document.getElementById('status-bar').innerText = msg;
         }
 
         function showError(msg) {
@@ -811,6 +857,8 @@
         }
 
         function closeAppWindow() {
+            const btn = document.getElementById('submitBtn'); // Use valid btn ref just in case
+            // 嘗試所有關閉方法
             if (typeof liff !== 'undefined' && liff.isInClient()) {
                 liff.closeWindow();
             } else {
@@ -820,6 +868,8 @@
 
         function setupFormLogic() {
             const typeSelect = document.getElementById('typeSelect');
+            const catBlock = document.getElementById('catBlock'); // ID verified: catBlock
+            const taskBlock = document.getElementById('taskBlock');
 
             // Handle Type Change
             const newTypeSelect = typeSelect.cloneNode(true);
@@ -849,22 +899,18 @@
                 });
             }
 
-            // Bind Click to Button
+            // Bind Click to Button directly (No Clone)
             const btn = document.getElementById('submitBtn');
             btn.onclick = function () {
-                debugLog("Btn Clicked. Mode=" + currentMode);
+                // Debug Flash
+                updateStatus("🚀 發佈啟動中... (Test)");
 
                 // 0. Auth Check
-                // Try from DOM first, then Global
-                let uid = document.getElementById('lineUserId').value;
-                if (!uid) uid = g_currentUserId;
-
+                const uid = document.getElementById('lineUserId').value;
                 if (!uid) {
-                    debugLog("Auth Fail: No UID found.");
-                    alert("⚠️ 身分尚未驗證 (No UID)\n請嘗試重新整理或重新開啟連結。");
+                    alert("身分尚未驗證，請等待綠條或橘條出現...");
                     return;
                 }
-                debugLog("Auth OK. UID: " + uid);
 
                 // 1. Content Check
                 const contentInput = document.getElementById('contentInput');
@@ -877,16 +923,10 @@
                 // 2. Disable Button Immediately
                 btn.disabled = true;
                 btn.innerText = "處理中...";
-                updateStatus("🚀 正在送出請求...");
 
                 try {
                     let contentVal = document.getElementById('contentInput').value;
                     const taskVal = document.getElementById('taskSelect').value;
-
-                    // NEW: Check Mode
-                    const mode = currentMode;
-                    const uuid = document.getElementById('uuid').value;
-                    debugLog("Prepare Submit. Mode=" + mode + ", UUID=" + uuid);
 
                     const data = {
                         projectId: document.getElementById('projectSelect').value,
@@ -895,7 +935,8 @@
                         category: document.getElementById('categorySelect').value,
                         item: taskVal || '',
                         content: contentVal,
-                        lineUserId: uid
+                        lineUserId: uid, // Use validated UID
+                        uuid: document.getElementById('uuid').value // NEW: For Edit
                     };
 
                     // Clean data
@@ -904,90 +945,82 @@
                         data.item = '';
                     }
 
+                    // Choose API Method
+                    const apiMethod = (currentMode === 'edit' && data.uuid) ? 'updateBulletinTest' : 'submitBulletinTest';
+
                     if (typeof google === 'undefined' || !google.script) {
                         throw new Error("Google Script API not loaded.");
                     }
 
-                    // Branch Logic for Edit vs New
-                    if (mode === 'edit') {
-                        if (!uuid) {
-                            alert("錯誤：沒有選擇修改的項目 (UUID Missing)");
-                            btn.disabled = false; btn.innerText = "確認修改";
-                            return;
-                        }
-                        data.uuid = uuid;
-
-                        debugLog("Invoking updateBulletin...");
-                        google.script.run
-                            .withSuccessHandler(resStr => {
-                                debugLog("Update Result: " + resStr);
-                                let res;
-                                try { res = JSON.parse(resStr); } catch (e) { res = { success: false, message: "JSON Error" }; }
-
-                                if (res.success) {
-                                    showSuccessUI("修改成功");
-                                } else {
-                                    alert("修改失敗: " + res.message);
-                                    btn.disabled = false; btn.innerText = "確認修改";
+                    google.script.run
+                        .withSuccessHandler(resStr => {
+                            console.log("Success Raw:", resStr);
+                            let resVal = resStr;
+                            let isJson = false;
+                            try {
+                                const parsed = JSON.parse(resStr);
+                                if (parsed && typeof parsed === 'object') {
+                                    resVal = parsed;
+                                    isJson = true;
                                 }
-                            })
-                            .withFailureHandler(handleFail)
-                            .updateBulletin(data);
+                            } catch (e) {
+                                // Not JSON, treat as string message
+                            }
 
-                    } else {
-                        // New Post
-                        debugLog("Invoking submitBulletin...");
-                        google.script.run
-                            .withSuccessHandler(res => {
-                                debugLog("Submit Success: " + res);
-                                showSuccessUI(res);
-                            })
-                            .withFailureHandler(handleFail)
-                            .submitBulletin(data);
-                    }
+                            // Handle Error Case from Backend (if JSON)
+                            if (isJson && resVal.success === false) {
+                                alert("❌ 處理失敗: " + resVal.message);
+                                btn.disabled = false;
+                                btn.innerText = (currentMode === 'edit') ? "確認修改 (測試)" : "發佈 (測試)";
+                                return;
+                            }
 
-                    function handleFail(err) {
-                        console.error("Failure Handler:", err);
-                        debugLog("Failure: " + err.message);
-                        alert("失敗 (後端拒絕)：\n" + (err.message || err));
-                        btn.disabled = false; btn.innerText = (mode === 'edit') ? "確認修改" : "發佈";
-                    }
+                            // Success Message
+                            let msg = (isJson) ? (resVal.message || "處理成功") : resVal;
 
-                    function showSuccessUI(msg) {
-                        const formContainer = document.getElementById('formBlock');
-                        const userInfoBlock = document.getElementById('userInfoBlock');
-                        const statusBar = document.getElementById('status-bar');
+                            // DIFFERENT BEHAVIOR FOR EDIT
+                            // 4. Shared Success UI for both New & Edit
+                            // 4. Shared Success UI for both New & Edit
+                            // 5. Static Success UI (Safe Mode)
+                            try {
+                                document.getElementById('formBlock').classList.add('d-none');
+                                document.getElementById('userInfoBlock').classList.add('d-none');
+                                if (document.getElementById('edit-selector-container')) {
+                                    document.getElementById('edit-selector-container').style.display = 'none';
+                                }
+                                if (document.getElementById('status-bar')) {
+                                    document.getElementById('status-bar').style.display = 'none';
+                                }
 
-                        // Hide Form Elements
-                        formContainer.classList.add('d-none');
-                        userInfoBlock.classList.add('d-none');
-                        if (statusBar) statusBar.style.display = 'none';
+                                // Show Success Block
+                                const sBlock = document.getElementById('successBlock');
+                                const sMsg = document.getElementById('successMsg');
+                                const sBtn = document.getElementById('successBtnText');
 
-                        // New: Hide Tabs and Edit Selector
-                        const tabs = document.getElementById('modeTabs');
-                        const editSelector = document.getElementById('edit-selector-container');
-                        if (tabs) tabs.style.display = 'none';
-                        if (editSelector) editSelector.style.display = 'none';
+                                if (sBlock) sBlock.classList.remove('d-none');
+                                if (sMsg) sMsg.innerText = msg;
+                                if (sBtn) sBtn.innerText = (currentMode === 'edit') ? '返回回報列表' : '再次回報';
 
-                        const successBlock = document.getElementById('successBlock');
-                        successBlock.classList.remove('d-none');
-                        document.getElementById('successMsg').innerText = msg || '處理成功';
-
-                        // Close Logic
-                        if (isLineClient) {
-                            setTimeout(closeAppWindow, 3000);
-                        }
-                    }
+                            } catch (uiErr) {
+                                alert("Success UI Error: " + uiErr.message);
+                                location.reload();
+                            }
+                        })
+                        .withFailureHandler(err => {
+                            console.error("Failure Handler:", err);
+                            alert("失敗 (後端拒絕)：\n" + (err.message || err));
+                            btn.disabled = false; btn.innerText = (currentMode === 'edit') ? "確認修改 (測試)" : "發佈 (測試)";
+                        })
+                    [apiMethod](data); // Dynamic call
 
                 } catch (ex) {
                     console.error("JS Error:", ex);
-                    debugLog("Catch Error: " + ex.message);
-                    alert("程序錯誤 (前端)：\n" + ex.message);
-                    btn.disabled = false; btn.innerText = (currentMode === 'edit') ? "確認修改" : "發佈";
+                    alert("發佈程序錯誤 (前端)：\n" + ex.message);
+                    btn.disabled = false; btn.innerText = (currentMode === 'edit') ? "確認修改 (測試)" : "發佈 (測試)";
                 }
             };
 
-            // Init state
+            // Init state for type Select (Trigger change to hide/show blocks)
             newTypeSelect.dispatchEvent(new Event('change'));
         }
     </script>
