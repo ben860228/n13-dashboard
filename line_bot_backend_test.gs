@@ -243,6 +243,61 @@ function formatDateSafe(val) {
 }
 
 /**
+ * [LIFF API] 取得單一公告的歷史紀錄
+ */
+function getBulletinHistoryTest(uuid) {
+    if (!uuid) return JSON.stringify({ success: false, message: 'No UUID' });
+    
+    try {
+        // Use the active spreadsheet (bound script) or fixed ID? 
+        // We usually pass projectId, but history is global? 
+        // Wait, history sheet is in the PROJECT spreadsheet. 
+        // We need projectId.
+        // Let's assume the frontend passes { projectId, uuid }
+        return JSON.stringify({ success: false, message: 'Missing Project ID' }); 
+    } catch(e) {
+        return JSON.stringify({ success: false, message: e.toString() });
+    }
+}
+// Wait, I need projectId. I should update the signature.
+
+/**
+ * [LIFF API] 取得單一公告的歷史紀錄
+ */
+function getBulletinHistoryTest(data) {
+    // data: { projectId, uuid }
+    if (!data || !data.projectId || !data.uuid) return JSON.stringify({ success: false, message: 'Invalid Params' });
+
+    try {
+        var app = SpreadsheetApp.openById(data.projectId);
+        var sheet = app.getSheetByName('bulletin_history');
+        if (!sheet) return JSON.stringify({ success: true, history: [] }); // No history yet
+
+        var rows = sheet.getDataRange().getValues();
+        var history = [];
+        // Cols: 0:Ref_UUID, 1:ArchivedAt, 2:Orig_Timestamp ...
+        
+        for (var i = 1; i < rows.length; i++) {
+            if (String(rows[i][0]) === String(data.uuid)) {
+                history.push({
+                    archivedAt: formatDateSafe(rows[i][1]),
+                    content: rows[i][8], // Content is col I -> index 8 (in history sheet logic?) 
+                    // Let's check updateBulletinTest logic:
+                    // historyRow = [uuid, archivedAt, orig_ts, date, author, type, cat, item, content...]
+                    // Content is index 8. Correct.
+                    author: rows[i][4],
+                    date: formatDateSafe(rows[i][3])
+                });
+            }
+        }
+        
+        return JSON.stringify({ success: true, history: history.reverse() }); // Newest first
+    } catch (e) {
+        return JSON.stringify({ success: false, message: e.toString() });
+    }
+}
+
+/**
  * [LIFF API] 更新公告 (編輯功能)
  */
 function updateBulletinTest(data) {
@@ -913,12 +968,12 @@ function createBulletinFlex(pName, row, projectInfo) {
         dashboardUrl = baseUrl + projectInfo.code + "-dashboard.html";
     }
     
-    // 簡單的顏色邏輯
+    // 簡單的顏色邏輯 (Updated per request)
     var barColor = "#333333";
-    if (type === '主管訊息') barColor = "#E74C3C";
-    else if (category.includes('行政')) barColor = "#95A5A6";
-    else if (category.includes('設計')) barColor = "#3498DB";
-    else if (category.includes('施工')) barColor = "#F1C40F";
+    if (type === '主管訊息') barColor = "#D32F2F"; // Red
+    else if (category.includes('行政')) barColor = "#FF9800"; // Orange
+    else if (category.includes('設計')) barColor = "#8E44AD"; // Purple
+    else if (category.includes('施工')) barColor = "#2980B9"; // Blue
 
     return {
         "type": "bubble",
