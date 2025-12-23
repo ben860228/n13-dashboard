@@ -46,8 +46,12 @@
 ## 如何新增專案？
 1.  複製一份現有的儀表板 (如 `JY_N13-dashboard.html`) 並重新命名。
 2.  修改新檔案中的 `<title>` 與 `window.PROJECT_CONFIG` 內的 CSV 連結。
-3.  在 `index.html` 中新增對應的地標按鈕 (Pin)。
-4.  在 Google Sheet 後端設定好對應的 `Project_ID`。
+3.  **準備並發布以下 3 個 Google Sheets 工作表為 CSV**：
+    *   **Tasks (進度表)**：包含任務名稱、開始/結束日期、權重、實際進度等欄位。
+    *   **Info (專案資訊)**：包含專案名稱、業主、設計者、開始/結束日期等基本資料。
+    *   **Bulletin (回報紀錄)**：用於儲存與讀取來自 LINE 的回報資料。
+4.  在 `index.html` 中新增對應的地標按鈕 (Pin)。
+5.  在 Google Sheet 後端 (project-table) 設定好對應的 `Project_ID`。
 
 ## 技術棧
 *   **Frontend**: HTML5, CSS3, Vanilla JS
