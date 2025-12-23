@@ -40,6 +40,9 @@
 *   **主要函式**：
     *   `getLiffConfig`：LIFF 初始化時取得使用者與專案資料。
     *   `getProjectTasks`：讀取專案任務清單 (最複雜的試算表讀取函式)。
+    *   `getProjectTasksWithHistory`：[NEW] 取得包含歷史進度與日期欄位的完整任務資料。
+    *   `updateTaskProgress`：[NEW] 批次寫入週進度回報資料。
+    *   `saveTaskBreakdown` / `getTaskBreakdown`：[NEW] 儲存與讀取子項目計算機的設定 (存於 `sys_task_breakdowns` 分頁)。
     *   `getProjectInfoById`：透過 ID 查找專案資訊。
 
 ### 7. `Service_Bulletin.gs` (發布與公告服務)
