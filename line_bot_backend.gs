@@ -103,10 +103,14 @@ function getLiffConfig(userId) {
             var projectData = projectSheet.getDataRange().getValues();
             for (var i = 1; i < projectData.length; i++) {
                 // CSV: Project_ID(0), Project_Name(1), Spreadsheet_ID(2)
-                // Use Name for display, Spreadsheet_ID for value (to allow backend access)
-                var pName = projectData[i][1] || projectData[i][0]; // Fallback to Code if Name empty
-                var pId = projectData[i][2]; 
-                if (pId) { // Only add if Spreadsheet ID exists
+                // REFACTOR: Use Project_ID (Col 0) as the system ID.
+                var pId = String(projectData[i][0]).trim(); 
+                var pName = projectData[i][1] || pId; 
+                var spreadsheetId = projectData[i][2];
+
+                // Only add if it has a Project ID (Spreadsheet ID isn't required for dropdown, but usually needed for tasks)
+                if (pId) { 
+                    // Note: Front-end now receives Project_ID (e.g. "JY_N13") as the "id" value.
                     projects.push({ name: pName, id: pId });
                 }
             }
@@ -368,11 +372,29 @@ function getProjectTasks(projectId) {
     // Default to empty array if projectId is missing
     if (!projectId) return JSON.stringify({ success: false, logs: ["No Project ID"], tasks: [] });
 
+    // REFACTOR: Lookup Spreadsheet ID if input is a Project ID (e.g. "JY_N13")
+    var targetSpreadsheetId = projectId;
+    var isRawId = (projectId.length > 25 && !projectId.includes("_")); // Simple heuristic for Google ID
+    
+    if (!isRawId) {
+        logs.push("Looking up Project ID: " + projectId);
+        var pInfo = getProjectInfoById(projectId); // This function will be updated to match Project_ID
+        if (pInfo && pInfo.spreadsheetId) {
+            targetSpreadsheetId = pInfo.spreadsheetId;
+            logs.push("Found Spreadsheet ID: " + targetSpreadsheetId.substring(0,5)+"...");
+        } else {
+            logs.push("Project ID Lookup Failed");
+            // Try continuing as if it matches the script (fallback) or error out?
+            // If lookup fails, we can't open the sheet.
+             return JSON.stringify({ success: false, logs: logs, tasks: [] });
+        }
+    }
+
     try {
         var app;
         try {
             // Try openById (Requires Scope)
-            app = SpreadsheetApp.openById(projectId);
+            app = SpreadsheetApp.openById(targetSpreadsheetId);
             logs.push("Opened Spreadsheet");
         } catch(e) {
             logs.push("Open Error: " + e.message);
@@ -844,10 +866,11 @@ function getProjectMemberKeys(projectId) {
         var app = SpreadsheetApp.openById(SPREADSHEET_ID);
         var sheet = app.getSheetByName('project-table') || app.getSheetByName('Project_List');
         var data = sheet.getDataRange().getValues();
-        // CSV: 0:P Code, 1:Name, 2:Spreadsheet ID, 3~N: Member Keys
+        // CSV: 0:P_ID, 1:Name, 2:Share_ID, 3~N: Members
         
         for (var i = 1; i < data.length; i++) {
-            if (String(data[i][2]) === String(projectId)) { // Match Spreadsheet ID
+            // REFACTOR: Match by Project_ID (Col 0)
+            if (String(data[i][0]).trim() === String(projectId).trim()) { 
                 var members = [];
                 // Iterate from col 3 to end
                 for (var j = 3; j < data[i].length; j++) {
@@ -901,10 +924,12 @@ function getProjectInfoById(projectId) {
         var data = sheet.getDataRange().getValues();
         
         for (var i = 1; i < data.length; i++) {
-            if (String(data[i][2]) === String(projectId)) {
+            // REFACTOR: Match Project_ID (Col 0)
+            if (String(data[i][0]).trim() === String(projectId).trim()) {
                 return {
                     code: data[i][0],
-                    name: data[i][1]
+                    name: data[i][1],
+                    spreadsheetId: data[i][2] // Needed for getProjectTasks lookup
                 };
             }
         }
@@ -966,8 +991,8 @@ function createBulletinFlex(projectName, postData, projectInfo) {
 
     // Dynamic Dashboard Link
     var dashboardUrl = "https://ben860228.github.io/Jingyi-PCM/";
-    if (projectInfo && projectInfo.name) {
-        dashboardUrl += "?project=" + encodeURIComponent(projectInfo.name);
+    if (projectInfo && projectInfo.code) {
+        dashboardUrl += "?project=" + encodeURIComponent(projectInfo.code);
     }
     
     // Truncate Content nicely

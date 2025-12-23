@@ -1,12 +1,13 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>經一綠能-工程專案管理平台</title>
-    
+
     <link rel="icon" type="image/png" href="images/LOGO-NONAME-BLUE-ICON.png">
-    
+
     <meta property="og:title" content="經一綠能-工程專案管理平台">
     <meta property="og:description" content="經一綠能 全台各處工程的進度追蹤平台. Ben Liu.">
     <meta property="og:image" content="images/LOGO-WITHNAME-BLUE-HUNDE.png">
@@ -14,72 +15,80 @@
 
     <style>
         /* --- 全局設定 --- */
-        body, html { 
-            margin: 0; padding: 0; 
-            width: 100%; height: 100%; 
-            overflow: hidden; 
-            font-family: "Microsoft JhengHei", sans-serif; 
-            background-color: #000; 
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: "Microsoft JhengHei", sans-serif;
+            background-color: #000;
         }
 
         /* --- 1. Header 區域 --- */
         .portal-header {
             position: relative;
             width: 100%;
-            height: 110px; 
+            height: 110px;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             z-index: 100;
-            background-color: #5377A6; 
-            box-shadow: 0 5px 20px rgba(0,0,0,0.5); 
+            background-color: #5377A6;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
         }
-        
+
         .logo-box {
-            background: transparent !important; 
-            padding: 0 !important; 
-            border: none !important; 
+            background: transparent !important;
+            padding: 0 !important;
+            border: none !important;
             margin-bottom: 5px;
             box-shadow: none !important;
         }
 
         .portal-logo-img {
-            height: 50px; 
+            height: 50px;
             width: auto;
             display: block;
-            filter: none; 
+            filter: none;
         }
 
         .portal-title {
             color: #fff;
-            font-size: 1.4em; 
-            font-weight: 900; 
-            letter-spacing: 2px; 
+            font-size: 1.4em;
+            font-weight: 900;
+            letter-spacing: 2px;
             margin-top: 5px;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
         }
 
         /* --- 2. 水面背景 --- */
         #water-canvas {
             position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%; 
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             z-index: 1;
-            background-color: #5377A6; 
+            background-color: #5377A6;
         }
 
         /* --- 3. 台灣地圖容器 --- */
         .map-wrapper {
             position: absolute;
-            top: 55%; left: 50%;
-            width: 480px; 
-            height: auto; 
+            top: 55%;
+            left: 50%;
+            width: 480px;
+            height: auto;
             transform: translate(-50%, -50%) perspective(1000px) rotateX(45deg) rotateZ(20deg);
             transform-style: preserve-3d;
             transition: transform 0.5s ease-out;
             z-index: 10;
-            display: flex; justify-content: center; align-items: center;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
         .map-wrapper:hover {
@@ -90,12 +99,16 @@
             width: 100%;
             height: auto;
             display: block;
-            filter: drop-shadow(30px 40px 50px rgba(0,0,0,0.6));
-            opacity: 0; /* 1. 預設先隱藏，避開方形陰影 */
-            transition: opacity 0.8s ease-out; /* 2. 加入淡入動畫效果 */            user-select: none;
+            filter: drop-shadow(30px 40px 50px rgba(0, 0, 0, 0.6));
+            opacity: 0;
+            /* 1. 預設先隱藏，避開方形陰影 */
+            transition: opacity 0.8s ease-out;
+            /* 2. 加入淡入動畫效果 */
             user-select: none;
-            -webkit-user-drag: none;        }
-        
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+
         .taiwan-img.loaded {
             opacity: 0.95;
         }
@@ -104,16 +117,19 @@
         .project-pin-anchor {
             position: absolute;
             transform: rotateZ(-20deg) rotateX(-45deg) translateZ(100px);
-            width: 0; height: 0; 
+            width: 0;
+            height: 0;
             z-index: 20;
             cursor: pointer;
         }
 
         .pin-dot {
             position: absolute;
-            top: -8px; left: -8px; 
-            width: 12px; height: 12px;
-            background: #FF0000; 
+            top: -8px;
+            left: -8px;
+            width: 12px;
+            height: 12px;
+            background: #FF0000;
             border-radius: 50%;
             box-shadow: 0 0 15px #FF0000;
             border: 2px solid #fff;
@@ -125,13 +141,15 @@
         /* === 左側延伸樣式 (N13) === */
         .pin-connector-L {
             position: absolute;
-            bottom: 0; right: 0;
-            width: 150px; height: 60px;
-            box-sizing: border-box; 
+            bottom: 0;
+            right: 0;
+            width: 150px;
+            height: 60px;
+            box-sizing: border-box;
             border-top: 2px solid #fff;
             border-right: 2px solid #fff;
-            transform: translateX(1px); 
-            filter: drop-shadow(2px 2px 3px rgba(0,0,0,0.5)) drop-shadow(0 0 5px rgba(255,255,255,0.8));
+            transform: translateX(1px);
+            filter: drop-shadow(2px 2px 3px rgba(0, 0, 0, 0.5)) drop-shadow(0 0 5px rgba(255, 255, 255, 0.8));
             pointer-events: none;
             z-index: 1;
             transition: opacity 0.3s;
@@ -139,33 +157,36 @@
 
         .pin-label {
             position: absolute;
-            right: 150px; bottom: 60px;
+            right: 150px;
+            bottom: 60px;
             background: #fff;
-            color: #003366; 
-            padding: 8px 18px; 
-            font-weight: 800; 
-            font-size: 1.3em; 
+            color: #003366;
+            padding: 8px 18px;
+            font-weight: 800;
+            font-size: 1.3em;
             border-radius: 4px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.6);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.6);
             text-decoration: none;
             white-space: nowrap;
             border: 2px solid #fff;
-            pointer-events: auto; 
+            pointer-events: auto;
             transition: all 0.3s;
             z-index: 2;
-            transform: translateY(50%) translateY(1px); 
+            transform: translateY(50%) translateY(1px);
         }
 
         /* === 右側延伸樣式 (玉里) === */
         .pin-connector-L-right {
             position: absolute;
-            top: 0; left: 0; 
-            width: 80px; height: 60px; 
-            box-sizing: border-box; 
+            top: 0;
+            left: 0;
+            width: 80px;
+            height: 60px;
+            box-sizing: border-box;
             border-left: 2px solid #fff;
             border-bottom: 2px solid #fff;
             transform: translateX(-1px);
-            filter: drop-shadow(2px 2px 3px rgba(0,0,0,0.5)) drop-shadow(0 0 5px rgba(255,255,255,0.8));
+            filter: drop-shadow(2px 2px 3px rgba(0, 0, 0, 0.5)) drop-shadow(0 0 5px rgba(255, 255, 255, 0.8));
             pointer-events: none;
             z-index: 1;
             transition: opacity 0.3s;
@@ -173,33 +194,33 @@
 
         .pin-label-right {
             position: absolute;
-            left: 78px;  
-            top: 60px;   
+            left: 78px;
+            top: 60px;
             background: #fff;
-            color: #003366; 
-            padding: 8px 18px; 
-            font-weight: 800; 
-            font-size: 1.3em; 
+            color: #003366;
+            padding: 8px 18px;
+            font-weight: 800;
+            font-size: 1.3em;
             border-radius: 4px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.6);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.6);
             text-decoration: none;
             white-space: nowrap;
             border: 2px solid #fff;
-            pointer-events: auto; 
+            pointer-events: auto;
             transition: all 0.3s;
             z-index: 2;
-            transform: translateY(-50%) translateX(2px); 
+            transform: translateY(-50%) translateX(2px);
         }
 
         /* Hover 互動 (共用) */
         body:not(.is-calibrating) .project-pin-anchor:hover .pin-label,
         body:not(.is-calibrating) .project-pin-anchor:hover .pin-label-right {
-            background: #FFC107; 
+            background: #FFC107;
             color: #000;
             border-color: #FFC107;
             transform: translateY(50%) translateY(1px) scale(1.1);
         }
-        
+
         /* 右側標籤 Hover 修正 */
         body:not(.is-calibrating) .project-pin-anchor:hover .pin-label-right {
             transform: translateY(-50%) translateX(2px) scale(1.1);
@@ -208,7 +229,7 @@
         body:not(.is-calibrating) .project-pin-anchor:hover .pin-dot {
             transform: scale(1.5);
         }
-        
+
         body:not(.is-calibrating) .project-pin-anchor:hover .pin-connector-L,
         body:not(.is-calibrating) .project-pin-anchor:hover .pin-connector-L-right {
             border-color: #FFC107;
@@ -216,12 +237,13 @@
         }
 
         /* --- 5. 座標設定 --- */
-        
+
         /* 南投 N13 */
-        .pin-n13 { 
-            top: 43.4%;  
-            left: 50.6%; 
+        .pin-n13 {
+            top: 43.4%;
+            left: 50.6%;
         }
+
         .pin-n13:hover .pin-dot {
             box-shadow: 0 0 20px #FF0000;
         }
@@ -231,10 +253,12 @@
             top: 54.4%;
             left: 73.2%;
         }
+
         .pin-yuli .pin-dot {
             background: #FFD700;
             box-shadow: 0 0 15px #FFD700;
         }
+
         .pin-yuli:hover .pin-dot {
             box-shadow: 0 0 20px #FFD700;
         }
@@ -244,19 +268,24 @@
            ========================================= */
         #calibration-toggle {
             position: fixed;
-            bottom: 10px; left: 10px;
-            width: 30px; height: 30px;
+            bottom: 10px;
+            left: 10px;
+            width: 30px;
+            height: 30px;
             border-radius: 50%;
-            background: transparent; 
+            background: transparent;
             border: none;
             color: rgba(255, 255, 255, 0.5);
-            opacity: 0.05; 
+            opacity: 0.05;
             font-size: 16px;
             cursor: pointer;
             z-index: 9999;
-            display: flex; align-items: center; justify-content: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             transition: all 0.3s ease;
         }
+
         #calibration-toggle:hover {
             opacity: 1;
             background: rgba(0, 0, 0, 0.6);
@@ -265,10 +294,11 @@
         }
 
         #debug-panel {
-            display: none; 
+            display: none;
             position: fixed;
-            top: 130px; left: 20px;
-            background: rgba(0,0,0,0.85);
+            top: 130px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.85);
             color: #00E676;
             padding: 15px;
             border-radius: 8px;
@@ -277,7 +307,7 @@
             z-index: 1000;
             border: 1px solid #00E676;
             pointer-events: none;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
             min-width: 250px;
         }
 
@@ -295,8 +325,14 @@
             pointer-events: auto;
             transition: background 0.2s;
         }
-        #copy-prompt-btn:hover { background: #1B5E20; }
-        #copy-prompt-btn:active { transform: translateY(1px); }
+
+        #copy-prompt-btn:hover {
+            background: #1B5E20;
+        }
+
+        #copy-prompt-btn:active {
+            transform: translateY(1px);
+        }
 
         body.is-calibrating .pin-label,
         body.is-calibrating .pin-label-right,
@@ -304,46 +340,78 @@
         body.is-calibrating .pin-connector-L-right {
             display: none !important;
         }
+
         body.is-calibrating .pin-dot.selected {
-            background: #00E676; 
+            background: #00E676;
             box-shadow: 0 0 20px #00E676;
             transform: scale(1.5);
         }
 
         @media (max-width: 768px) {
-            .portal-header { height: 80px; }
-            .portal-logo-img { height: 40px; }
-            .portal-title { font-size: 0.9em; margin-top: 3px; }
-            
+            .portal-header {
+                height: 80px;
+            }
+
+            .portal-logo-img {
+                height: 40px;
+            }
+
+            .portal-title {
+                font-size: 0.9em;
+                margin-top: 3px;
+            }
+
             /* --- 修改這裡 --- */
             .map-wrapper {
                 /* 原本是 85vw，改為 60vw (縮小一點) */
-                width: 60vw; 
-                
+                width: 60vw;
+
                 /* 原本是 left: 50%，改為 42% (稍微往左移，把右邊空間讓給玉里標籤) */
-                left: 42%; 
-                
+                left: 42%;
+
                 top: 55%;
-                
+
                 /* 保持原本的 3D 參數不變 */
                 transform: translate(-50%, -50%) perspective(800px) rotateX(40deg) rotateZ(15deg);
             }
+
             .map-wrapper:hover {
                 transform: translate(-50%, -50%) perspective(800px) rotateX(40deg) rotateZ(15deg);
             }
+
             /* ---------------- */
-            
-            .pin-connector-L { width: 40px; height: 40px; }
-            .pin-label { right: 40px; bottom: 40px; font-size: 1em; padding: 6px 12px; }
-            
-            .pin-connector-L-right { width: 50px; height: 40px; }
-            .pin-label-right { left: 48px; top: 40px; font-size: 1em; padding: 6px 12px; }
 
-            .project-pin-anchor { transform: rotateZ(-15deg) rotateX(-40deg) translateZ(50px); }
+            .pin-connector-L {
+                width: 40px;
+                height: 40px;
+            }
+
+            .pin-label {
+                right: 40px;
+                bottom: 40px;
+                font-size: 1em;
+                padding: 6px 12px;
+            }
+
+            .pin-connector-L-right {
+                width: 50px;
+                height: 40px;
+            }
+
+            .pin-label-right {
+                left: 48px;
+                top: 40px;
+                font-size: 1em;
+                padding: 6px 12px;
+            }
+
+            .project-pin-anchor {
+                transform: rotateZ(-15deg) rotateX(-40deg) translateZ(50px);
+            }
         }
-
     </style>
 </head>
+
 <body>
 
     <div class="portal-header">
@@ -358,14 +426,14 @@
     <div class="map-wrapper">
         <img src="images/taiwan-map.png" alt="Taiwan Map" class="taiwan-img">
 
-        <div id="pin-n13" class="project-pin-anchor pin-n13" onclick="handlePinClick('n13-dashboard.html', this)">
-            <a href="n13-dashboard.html" class="pin-label">南投 N13</a>
+        <div id="pin-n13" class="project-pin-anchor pin-n13" onclick="handlePinClick('JY_N13-dashboard.html', this)">
+            <a href="JY_N13-dashboard.html" class="pin-label">南投 N13</a>
             <div class="pin-connector-L"></div>
             <div class="pin-dot"></div>
         </div>
 
         <div id="pin-yuli" class="project-pin-anchor pin-yuli" onclick="handleYuliClick(this)">
-            <span class="pin-label-right" style="cursor: help;">花蓮 玉里</span> 
+            <span class="pin-label-right" style="cursor: help;">花蓮 玉里</span>
             <div class="pin-connector-L-right"></div>
             <div class="pin-dot"></div>
         </div>
@@ -403,21 +471,21 @@
 
         function draw() {
             const bgGradient = ctx.createLinearGradient(0, 0, 0, height);
-            bgGradient.addColorStop(0, '#5377A6');       
-            bgGradient.addColorStop(1, '#2c3e50');       
+            bgGradient.addColorStop(0, '#5377A6');
+            bgGradient.addColorStop(1, '#2c3e50');
             ctx.fillStyle = bgGradient;
             ctx.fillRect(0, 0, width, height);
-            ctx.globalCompositeOperation = 'overlay'; 
-            ctx.lineWidth = 3; 
+            ctx.globalCompositeOperation = 'overlay';
+            ctx.lineWidth = 3;
             for (let i = 1; i <= 3; i++) {
                 ctx.beginPath();
                 ctx.strokeStyle = `rgba(255, 255, 255, ${0.12 / i})`;
-                const step = 80; 
-                for (let x = -100; x < width + 100; x += step) { 
+                const step = 80;
+                for (let x = -100; x < width + 100; x += step) {
                     let y = -50;
                     ctx.moveTo(x, y);
-                    while(y < height + 50) {
-                        y += 20; 
+                    while (y < height + 50) {
+                        y += 20;
                         const xOffset = Math.sin(y * 0.005 + t * 0.005 * i + x * 0.01) * 25;
                         ctx.lineTo(x + xOffset, y);
                     }
@@ -432,7 +500,7 @@
 
         // --- 新增這段：處理地圖淡入 ---
         const mapImg = document.querySelector('.taiwan-img');
-        
+
         function showMap() {
             mapImg.classList.add('loaded');
         }
@@ -454,10 +522,10 @@
         const targetName = document.getElementById('target-name');
         const copyBtn = document.getElementById('copy-prompt-btn');
         let isCalibrating = false;
-        let selectedPin = null; 
-        
+        let selectedPin = null;
+
         function updateDebugInfo() {
-            if(selectedPin) {
+            if (selectedPin) {
                 const computed = getComputedStyle(selectedPin);
                 const parentH = selectedPin.parentElement.offsetHeight;
                 const parentW = selectedPin.parentElement.offsetWidth;
@@ -485,15 +553,15 @@
             if (!isCalibrating || !selectedPin) return;
             let t = parseFloat(valTop.textContent);
             let l = parseFloat(valLeft.textContent);
-            const step = e.shiftKey ? 1.0 : 0.1; 
+            const step = e.shiftKey ? 1.0 : 0.1;
             let changed = false;
-            switch(e.key) {
+            switch (e.key) {
                 case 'ArrowUp': t -= step; changed = true; break;
                 case 'ArrowDown': t += step; changed = true; break;
                 case 'ArrowLeft': l -= step; changed = true; break;
                 case 'ArrowRight': l += step; changed = true; break;
             }
-            if(changed) {
+            if (changed) {
                 e.preventDefault();
                 selectedPin.style.top = t.toFixed(1) + '%';
                 selectedPin.style.left = l.toFixed(1) + '%';
@@ -502,7 +570,7 @@
         });
 
         copyBtn.addEventListener('click', () => {
-            if(!selectedPin) return;
+            if (!selectedPin) return;
             const name = targetName.textContent;
             const t = valTop.textContent;
             const l = valLeft.textContent;
@@ -514,19 +582,19 @@
             });
         });
 
-        window.handlePinClick = function(url, el) {
+        window.handlePinClick = function (url, el) {
             if (isCalibrating) {
                 document.querySelectorAll('.pin-dot').forEach(d => d.classList.remove('selected'));
                 selectedPin = el;
                 selectedPin.querySelector('.pin-dot').classList.add('selected');
                 updateDebugInfo();
-                event.preventDefault(); 
+                event.preventDefault();
             } else {
                 location.href = url;
             }
         }
 
-        window.handleYuliClick = function(el) {
+        window.handleYuliClick = function (el) {
             if (isCalibrating) {
                 document.querySelectorAll('.pin-dot').forEach(d => d.classList.remove('selected'));
                 selectedPin = el;
@@ -538,5 +606,22 @@
         }
     </script>
 
+    <!-- Auto-Redirect Logic -->
+    <script>
+            (function () {
+                const params = new URLSearchParams(window.location.search);
+                const projectId = params.get('project');
+                if (projectId === 'JY_N13') {
+                    // Auto Redirect to N13 Dashboard
+                    window.location.href = 'JY_N13-dashboard.html';
+                } else if (projectId === 'JY_Yuli') {
+                    // Show Coming Soon Alert
+                    setTimeout(function () {
+                        alert("🚧 玉里專案儀表板建置中... (Project: " + projectId + ")");
+                    }, 500);
+                }
+            })();
+    </script>
 </body>
+
 </html>
