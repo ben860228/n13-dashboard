@@ -2,12 +2,18 @@ import { parsePercent, parseDate } from './utils.js';
 import { renderGantt } from './components/ganttChart.js';
 import { renderSCurve } from './components/sCurveChart.js';
 
-// ★★★ 已填入您提供的連結 ★★★
-const TASKS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQiyY2STxHEAcJIa_wBeLHRYpGj82dozn-1tCo_ZhltPo-CABMaWOD88K7LLJnXTtW_3IV-k2qZq8HV/pub?gid=0&single=true&output=csv";
-const PROJECT_INFO_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQiyY2STxHEAcJIa_wBeLHRYpGj82dozn-1tCo_ZhltPo-CABMaWOD88K7LLJnXTtW_3IV-k2qZq8HV/pub?gid=1735843667&single=true&output=csv";
-// ★★★ New Bulletin CSV URL ★★★
-const BULLETIN_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQiyY2STxHEAcJIa_wBeLHRYpGj82dozn-1tCo_ZhltPo-CABMaWOD88K7LLJnXTtW_3IV-k2qZq8HV/pub?gid=479280600&single=true&output=csv";
-// Note: User provided this URL.
+// ★★★ Dynamic Configuration for different Projects (N13, Yuli, etc.) ★★★
+const config = window.PROJECT_CONFIG || {};
+
+// Default: N13 Project
+const DEFAULT_TASKS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQiyY2STxHEAcJIa_wBeLHRYpGj82dozn-1tCo_ZhltPo-CABMaWOD88K7LLJnXTtW_3IV-k2qZq8HV/pub?gid=0&single=true&output=csv";
+const DEFAULT_INFO_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQiyY2STxHEAcJIa_wBeLHRYpGj82dozn-1tCo_ZhltPo-CABMaWOD88K7LLJnXTtW_3IV-k2qZq8HV/pub?gid=1735843667&single=true&output=csv";
+const DEFAULT_BULLETIN_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQiyY2STxHEAcJIa_wBeLHRYpGj82dozn-1tCo_ZhltPo-CABMaWOD88K7LLJnXTtW_3IV-k2qZq8HV/pub?gid=479280600&single=true&output=csv";
+
+// Use config if available, otherwise default
+const TASKS_CSV_URL = config.tasksUrl || DEFAULT_TASKS_URL;
+const PROJECT_INFO_CSV_URL = config.infoUrl || DEFAULT_INFO_URL;
+const BULLETIN_CSV_URL = config.bulletinUrl || DEFAULT_BULLETIN_URL;
 
 const today = new Date();
 today.setHours(0, 0, 0, 0);
@@ -145,8 +151,8 @@ function processData(taskCsv, infoCsv) {
     setTxt('ui-contractor', projectInfo.contractor);
     setTxt('ui-boss', projectInfo.boss);
     setTxt('ui-sponsor', projectInfo.sponsor);
-    setTxt('sCurveHeader', `${projectInfo.code} S-Curve`);
-    setTxt('ganttHeader', `${projectInfo.code} 專案整體進度甘特圖`);
+    setTxt('sCurveHeader', `${projectInfo.name} S-Curve`);
+    setTxt('ganttHeader', `${projectInfo.name} 專案整體進度甘特圖`);
 
 
     // --- 2. S-Curve 與日期計算 ---

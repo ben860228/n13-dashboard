@@ -254,15 +254,6 @@
             left: 73.2%;
         }
 
-        .pin-yuli .pin-dot {
-            background: #FFD700;
-            box-shadow: 0 0 15px #FFD700;
-        }
-
-        .pin-yuli:hover .pin-dot {
-            box-shadow: 0 0 20px #FFD700;
-        }
-
         /* =========================================
            ★★★ 工程模式 UI (隱形板手) ★★★ 
            ========================================= */
@@ -432,8 +423,8 @@
             <div class="pin-dot"></div>
         </div>
 
-        <div id="pin-yuli" class="project-pin-anchor pin-yuli" onclick="handleYuliClick(this)">
-            <span class="pin-label-right" style="cursor: help;">花蓮 玉里</span>
+        <div id="pin-yuli" class="project-pin-anchor pin-yuli" onclick="handlePinClick('JY_Yuli-dashboard.html', this)">
+            <a href="JY_Yuli-dashboard.html" class="pin-label-right">花蓮 玉里</a>
             <div class="pin-connector-L-right"></div>
             <div class="pin-dot"></div>
         </div>
@@ -612,13 +603,11 @@
                 const params = new URLSearchParams(window.location.search);
                 const projectId = params.get('project');
                 if (projectId === 'JY_N13') {
-                    // Auto Redirect to N13 Dashboard
+                    // Auto Redirect to N13
                     window.location.href = 'JY_N13-dashboard.html';
                 } else if (projectId === 'JY_Yuli') {
-                    // Show Coming Soon Alert
-                    setTimeout(function () {
-                        alert("🚧 玉里專案儀表板建置中... (Project: " + projectId + ")");
-                    }, 500);
+                    // Auto Redirect to Yuli
+                    window.location.href = 'JY_Yuli-dashboard.html';
                 }
             })();
     </script>

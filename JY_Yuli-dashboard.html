@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>花蓮玉里專案戰情儀表板</title>
+
+    <link rel="icon" type="image/png" href="images/LOGO-NONAME-BLUE-ICON.png">
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script
+        src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <script
+        src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+
+    <link rel="stylesheet" href="css/style.css">
+
+    <!-- ★★★ Project Configuration ★★★ -->
+    <script>
+        window.PROJECT_CONFIG = {
+            // 請填入花蓮玉里專案的 CSV 連結
+            tasksUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTl_MAoHjR5PLhrna8UeGwObtSAnLd-viqOCPQwZFKxWmaobUxE_mNGDFhSjrjXhAhBNWbY5qevumQD/pub?gid=0&single=true&output=csv",
+            infoUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTl_MAoHjR5PLhrna8UeGwObtSAnLd-viqOCPQwZFKxWmaobUxE_mNGDFhSjrjXhAhBNWbY5qevumQD/pub?gid=1735843667&single=true&output=csv",
+            bulletinUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTl_MAoHjR5PLhrna8UeGwObtSAnLd-viqOCPQwZFKxWmaobUxE_mNGDFhSjrjXhAhBNWbY5qevumQD/pub?gid=479280600&single=true&output=csv"
+        };
+    </script>
+</head>
+
+<body>
+
+    <div class="container">
+
+        <div class="top-dashboard-wrapper">
+            <a href="index.html" class="logo-block" style="text-decoration: none;" title="返回首頁">
+                <img src="images/LOGO-WITHNAME-GREEN-SQUARE.png" alt="經一綠能" class="company-logo">
+            </a>
+
+            <div class="card info-block">
+                <div class="info-header">
+                    <div class="title-col">
+                        <h1 id="ui-project-name">載入中...</h1>
+                        <div class="sub-title">專案戰情儀表板</div>
+                    </div>
+                    <div class="date-col">
+                        <span id="currentDate"></span>
+                        <div id="statusMsg" style="font-size:0.8em; margin-top:5px; color:#999;"></div>
+                    </div>
+                </div>
+
+                <div class="key-people-row">
+                    <div class="kp-item">
+                        <span class="kp-label">專案主管</span>
+                        <span id="ui-boss" class="kp-value">--</span>
+                    </div>
+                    <div class="kp-divider"></div>
+                    <div class="kp-item">
+                        <span class="kp-label">專案負責人</span>
+                        <span id="ui-sponsor" class="kp-value">--</span>
+                    </div>
+                </div>
+
+                <div class="general-info-grid">
+                    <div class="gi-item"><span class="gi-label">地點</span><span id="ui-location">--</span></div>
+                    <div class="gi-item"><span class="gi-label">主管機關</span><span id="ui-government">--</span></div>
+                    <div class="gi-item"><span class="gi-label">設計</span><span id="ui-designer">--</span></div>
+                    <div class="gi-item"><span class="gi-label">營造</span><span id="ui-contractor">--</span></div>
+                </div>
+            </div>
+
+            <div class="card stats-block">
+                <div class="stat-row">
+                    <div class="s-label">預定進度</div>
+                    <div class="s-value" id="plannedVal">--%</div>
+                    <div class="s-sub" id="plannedDateStr">--/--/-- 已更新</div>
+                </div>
+                <div class="stat-row">
+                    <div class="s-label">實際進度</div>
+                    <div class="s-value" id="actualVal">--%</div>
+                    <div class="s-sub" id="actualDateStr">--/--/-- 已回報</div>
+                </div>
+                <div class="stat-row">
+                    <div class="s-label">差異</div>
+                    <div class="s-value" id="varianceVal">--%</div>
+                    <span class="badge" id="varianceText">--</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ★ New Bulletin Section ★ -->
+        <div class="card bulletin-block">
+            <div class="panel-header-row">
+                <div class="title-group">
+                    <h3 class="panel-head">專案公佈欄</h3>
+                    <span class="sub-note blue">(最新回報)</span>
+                </div>
+            </div>
+            <div id="bulletin-list" class="scrollable-list">
+                <!-- Dynamic content will be loaded here -->
+                <div style="text-align:center; padding: 20px; color:#999;">載入中...</div>
+            </div>
+        </div>
+
+        <div class="task-grid">
+            <div class="task-panel ongoing-panel">
+                <div class="panel-header-row">
+                    <div class="title-group">
+                        <h3 class="panel-head">進行中任務</h3>
+                        <span class="sub-note">(紅框表示落後)</span>
+                    </div>
+                    <div class="category-legend">
+                        <div class="legend-pair"><span class="legend-dot dot-admin"></span>行政</div>
+                        <div class="legend-pair"><span class="legend-dot dot-design"></span>設計</div>
+                        <div class="legend-pair"><span class="legend-dot dot-const"></span>施工</div>
+                    </div>
+                </div>
+                <div class="task-cols">
+                    <div class="t-col">
+                        <div class="col-title">行政</div>
+                        <div id="ongoing-行政" class="t-list scrollable-list"></div>
+                    </div>
+                    <div class="t-col">
+                        <div class="col-title">設計</div>
+                        <div id="ongoing-設計" class="t-list scrollable-list"></div>
+                    </div>
+                    <div class="t-col">
+                        <div class="col-title">施工 (土木/機電)</div>
+                        <div id="ongoing-施工" class="t-list scrollable-list"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="task-panel upcoming-panel">
+                <div class="panel-header-row">
+                    <div class="title-group">
+                        <h3 class="panel-head">即將發生</h3>
+                        <span class="sub-note blue">(未來 14 天)</span>
+                    </div>
+                </div>
+                <div class="single-col-list scrollable-list">
+                    <div id="upcoming-all"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-section">
+            <h3 id="sCurveHeader">專案 S-Curve</h3>
+            <div class="chart-container">
+                <canvas id="sCurveChart"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-section">
+            <h3 id="ganttHeader">專案整體進度甘特圖</h3>
+
+            <div class="gantt-legend">
+                <span class="legend-item"><span class="legend-color"
+                        style="background-color: #27ae60;"></span>已完成</span>
+                <span class="legend-item"><span class="legend-color"
+                        style="background-color: #3498db;"></span>進行中</span>
+                <span class="legend-item"><span class="legend-color"
+                        style="background-color: #f39c12;"></span>進行中(落後)</span>
+                <span class="legend-item"><span class="legend-color"
+                        style="background-color: #ff0000;"></span>尚未啟動而落後</span>
+            </div>
+
+            <div class="gantt-container">
+                <canvas id="ganttChart"></canvas>
+            </div>
+        </div>
+
+        <div class="footer-controls">
+            <button class="simple-btn" onclick="loadFromGoogle()">🔄 重新整理</button>
+            <button class="link-btn" onclick="toggleManual()">手動輸入 CSV</button>
+        </div>
+        <div id="manualSection">
+            <textarea id="csvInput" placeholder="請貼上 CSV..."></textarea>
+            <button class="simple-btn" onclick="parseManual()">確認</button>
+        </div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+
+</html>

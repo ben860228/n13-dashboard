@@ -153,8 +153,20 @@ function submitBulletin(data) {
         throw new Error('Permission denied: You are not authorized to post boss messages.');
     }
 
+    // 🟢 Fix: Resolve Spreadsheet ID from Project ID
+    var targetSpreadsheetId = data.projectId;
+    // Check if it looks like a Project ID (e.g. JY_N13)
+    if (data.projectId.indexOf('_') > 0 || data.projectId.length < 20) {
+        var pInfo = getProjectInfoById(data.projectId);
+        if (pInfo && pInfo.spreadsheetId) {
+            targetSpreadsheetId = pInfo.spreadsheetId;
+        } else {
+            throw new Error('Project ID not found in system: ' + data.projectId);
+        }
+    }
+
     try {
-        var targetSheet = SpreadsheetApp.openById(data.projectId).getSheetByName('bulletin');
+        var targetSheet = SpreadsheetApp.openById(targetSpreadsheetId).getSheetByName('bulletin');
         if (!targetSheet) throw new Error('Bulletin sheet not found in target project');
 
         // Columns Based on User Screenshot:
@@ -207,7 +219,15 @@ function getMyRecentBulletins(config) {
    if (!userInfo.success) return JSON.stringify({ success: false, message: 'Auth Failed' });
 
    try {
-       var app = SpreadsheetApp.openById(config.projectId);
+       // 🟢 Fix: Resolve Spreadsheet ID
+       var targetSpreadsheetId = config.projectId;
+       if (config.projectId.indexOf('_') > 0 || config.projectId.length < 20) {
+           var pInfo = getProjectInfoById(config.projectId);
+           if (pInfo && pInfo.spreadsheetId) targetSpreadsheetId = pInfo.spreadsheetId;
+           else return JSON.stringify({ success: false, message: 'Project ID Not Found' });
+       }
+
+       var app = SpreadsheetApp.openById(targetSpreadsheetId);
        var sheet = app.getSheetByName('bulletin');
        if (!sheet) return { success: false, message: 'No bulletin sheet' };
        
@@ -259,7 +279,15 @@ function getBulletinHistory(data) {
     if (!data || !data.projectId || !data.uuid) return JSON.stringify({ success: false, message: 'Invalid Params' });
 
     try {
-        var app = SpreadsheetApp.openById(data.projectId);
+         // 🟢 Fix: Resolve Spreadsheet ID
+        var targetSpreadsheetId = data.projectId;
+        if (data.projectId.indexOf('_') > 0 || data.projectId.length < 20) {
+            var pInfo = getProjectInfoById(data.projectId);
+            if (pInfo && pInfo.spreadsheetId) targetSpreadsheetId = pInfo.spreadsheetId;
+            else return JSON.stringify({ success: false, message: 'Project ID Not Found' });
+        }
+
+        var app = SpreadsheetApp.openById(targetSpreadsheetId);
         var sheet = app.getSheetByName('bulletin_history');
         if (!sheet) return JSON.stringify({ success: true, history: [] }); // No history yet
 
@@ -298,7 +326,15 @@ function updateBulletin(data) {
     if (!userInfo.success) throw new Error('Auth Failed');
     
     // 1. Find the Post
-    var app = SpreadsheetApp.openById(data.projectId);
+    // 🟢 Fix: Resolve Spreadsheet ID
+    var targetSpreadsheetId = data.projectId;
+    if (data.projectId.indexOf('_') > 0 || data.projectId.length < 20) {
+        var pInfo = getProjectInfoById(data.projectId);
+        if (pInfo && pInfo.spreadsheetId) targetSpreadsheetId = pInfo.spreadsheetId;
+        else throw new Error('Project ID Not Found in Backend');
+    }
+
+    var app = SpreadsheetApp.openById(targetSpreadsheetId);
     var sheet = app.getSheetByName('bulletin');
     var histSheet = app.getSheetByName('bulletin_history');
     
