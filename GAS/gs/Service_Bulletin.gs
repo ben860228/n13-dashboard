@@ -263,6 +263,91 @@ function updateBulletin(data) {
 }
 
 /**
+ * [LIFF API] 刪除公告
+ */
+function deleteBulletin(data) {
+    // data: { projectId, lineUserId, uuid }
+    var userInfoStr = getLiffConfig(data.lineUserId);
+    var userInfo = JSON.parse(userInfoStr);
+    
+    if (!userInfo.success) throw new Error('Auth Failed');
+    
+    // 1. Find the Post
+    var targetSpreadsheetId = data.projectId;
+    if (data.projectId.indexOf('_') > 0 || data.projectId.length < 20) {
+        var pInfo = getProjectInfoById(data.projectId);
+        if (pInfo && pInfo.spreadsheetId) targetSpreadsheetId = pInfo.spreadsheetId;
+        else throw new Error('Project ID Not Found');
+    }
+
+    var app = SpreadsheetApp.openById(targetSpreadsheetId);
+    var sheet = app.getSheetByName('bulletin');
+    
+    // Check History Sheet
+    var histSheet = app.getSheetByName('bulletin_history');
+    if (!histSheet) {
+        histSheet = app.insertSheet('bulletin_history');
+        histSheet.appendRow(['Ref_UUID', 'ArchivedAt', 'Original_Timestamp', 'Date', 'Author', 'Type', 'Category', 'Item', 'Content', 'Images', 'Old_EditedAt']);
+    }
+
+    var rows = sheet.getDataRange().getValues();
+    var targetRowIndex = -1;
+    var targetRowData = null;
+
+    // Search by UUID (Col I -> Index 8)
+    for (var i = 1; i < rows.length; i++) {
+        if (String(rows[i][8]) === String(data.uuid)) {
+            targetRowIndex = i + 1;
+            targetRowData = rows[i];
+            break;
+        }
+    }
+
+    if (targetRowIndex === -1) throw new Error('Post not found (UUID mismatch)');
+    
+    // Verify Author
+    if (String(targetRowData[2]) !== userInfo.userName) {
+        throw new Error('Permission denied: You can only delete your own posts.');
+    }
+
+    // 2. Archive to History (Mark as DELETED in Content or Type?)
+    // Decision: Keep original data, maybe append [DELETED] to type or content in history?
+    // Let's store pure snapshot. 
+    // We can add a special marker if needed, but the fact it is in history and not in main means it was either edited or deleted.
+    // To distinguish, maybe we can rely on "ArchivedAt" timestamp.
+    // But to be explicit, let's just archive the exact state before delete.
+
+    var archivedAt = Utilities.formatDate(new Date(), "GMT+8", "yyyy/MM/dd HH:mm:ss");
+    var historyRow = [
+        data.uuid,         // Ref_UUID
+        archivedAt,        // ArchivedAt
+        targetRowData[0],  // Original Timestamp
+        targetRowData[1],  // Date
+        targetRowData[2],  // Author
+        targetRowData[3],  // Type (We could append "(Deleted)" here if we want explicit flag)
+        targetRowData[4],  // Category
+        targetRowData[5],  // Item
+        targetRowData[6],  // Content
+        targetRowData[7],  // Images
+        targetRowData[9]   // Old EditedAt
+    ];
+    // Mark as Deleted in History for clarity
+    historyRow[5] += " (SYSTEM: DELETED)"; // Append to Type or Item? 
+    // Let's modify the 'Type' column (Index 5 in historyRow array corresponds to Type? Wait.)
+    // historyRow indices: 
+    // 0:uuid, 1:archivedAt, 2:orig_ts, 3:date(orig_row[1]), 4:author(orig_row[2]), 5:type(orig_row[3])
+    // So historyRow[5] is Type.
+    historyRow[5] = historyRow[5] + " (已刪除)";
+
+    histSheet.appendRow(historyRow);
+
+    // 3. Delete Row
+    sheet.deleteRow(targetRowIndex);
+
+    return JSON.stringify({ success: true, message: '刪除成功' });
+}
+
+/**
  * 廣播給專案成員
  */
 function broadcastToProject(projectId, postData) {

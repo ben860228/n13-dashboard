@@ -27,6 +27,9 @@
 *   **`js/script.js` (首頁地圖邏輯)**
     *   處理 `index.html` 的地圖互動效果。
     *   控制地標 (Pin) 的顯示與點擊事件。
+*   **`js/pdfExport.js` (PDF 匯出模組)**
+    *   獨立的 PDF 報表生成邏輯。
+    *   負責高解析度甘特圖繪製、版面配置 (Header/Footer) 與 PDF 檔案生成 (使用 jsPDF + html2canvas)。
 
 ### 3. 樣式設計 (CSS)
 *   **`css/style.css` (全域樣式)**
@@ -39,7 +42,7 @@
 ### 4. 後端應用 (Google Apps Script)
 *   **`GAS/` 資料夾**
     *   存放所有與 LINE Bot、LIFF 表單以及 Google Sheet 互動的後端程式碼。
-    *   詳細說明請參閱 [GAS/README.md](GAS/README.md)。
+    *   詳細部署說明請參閱 [GAS/GAS_DEPLOY_GUIDE.md](GAS/GAS_DEPLOY_GUIDE.md)。
 
 ---
 
