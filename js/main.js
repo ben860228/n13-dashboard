@@ -390,7 +390,7 @@ function processData(taskCsv, infoCsv) {
         if (variance < -5) {
             elVar.className = "s-value text-red"; elBadge.className = "badge bg-red"; elBadge.textContent = "落後";
         } else if (variance >= 0) {
-            elVar.className = "s-value text-green"; elBadge.className = "badge bg-green"; elBadge.textContent = "超前";
+            elVar.className = "s-value text-green"; elBadge.className = "badge bg-green"; elBadge.textContent = "正常";
         } else {
             elVar.className = "s-value"; elBadge.className = "badge"; elBadge.textContent = "可控";
         }
@@ -651,14 +651,13 @@ function renderBulletinList(items) {
         }
 
         div.innerHTML = `
-            <div class="b-header" style="display: flex; justify-content: space-between; align-items: center;">
-                <div class="d-flex align-items-center" style="gap: 5px;">
+            <div class="b-header">
+                <div class="b-meta-group">
                     <span class="b-date">${dateStr}</span>
                     <span class="${typeClass}">${type}</span>
-                    ${itemTagHtml}
                 </div>
-                
-                <div class="d-flex align-items-center" style="gap: 5px;">
+                ${itemTagHtml}
+                <div class="b-info-group">
                     ${historyHtml}
                     <span class="b-author">${author}</span>
                 </div>

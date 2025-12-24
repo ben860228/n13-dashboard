@@ -1,5 +1,6 @@
 body {
-    font-family: "Microsoft JhengHei", sans-serif;
+    font-family: Arial, "Microsoft JhengHei", sans-serif;
+    /* Force Arial for English */
     background-color: #ECEFF1;
     margin: 0;
     padding: 20px;
@@ -26,32 +27,17 @@ body {
 /* --- 上方看板 (Top Banner) --- */
 .top-dashboard-wrapper {
     display: grid;
-    /* LOGO 160px | 資訊 auto | 數據 200px */
-    grid-template-columns: 160px 1fr 200px;
+    /* LOGO 130px | 資訊 auto | 數據 200px */
+    grid-template-columns: 130px 1fr 200px;
+    /* Reduced from 160px to 130px */
     gap: 15px;
     margin-bottom: 20px;
     align-items: stretch;
 }
 
-/* LOGO 區塊 */
-.logo-block {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: transparent;
-    border: none;
-    box-shadow: none;
-    padding: 0;
-    max-width: 100%;
-}
 
-.company-logo {
-    width: 100%;
-    height: auto;
-    object-fit: contain;
-    display: block;
-    max-height: 120px;
-}
+
+/* LOGO 區塊已移至下方 Brand Sidebar 設定 */
 
 /* 核心資訊 */
 .info-block {
@@ -274,12 +260,13 @@ body {
 }
 
 .bulletin-item {
-    padding: 12px 15px;
+    padding: 8px 15px;
+    /* Reduced padding from 12px */
     border-bottom: 1px solid #f0f0f0;
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    /* Changed from 6px to 8px for consistency */
+    gap: 4px;
+    /* Reduced gap from 8px */
 }
 
 /* ... existing code ... */
@@ -296,7 +283,7 @@ body {
 .b-date {
     color: #2E7D32;
     font-weight: bold;
-    font-size: 0.9em;
+    /* Font size moved to Flex section for consistency override */
 }
 
 /* Bulletin Tag Colors */
@@ -813,28 +800,28 @@ textarea {
 }
 
 .modal {
-    display: none; 
-    position: fixed; 
-    z-index: 1000; 
+    display: none;
+    position: fixed;
+    z-index: 1000;
     left: 0;
     top: 0;
-    width: 100%; 
-    height: 100%; 
-    overflow: auto; 
-    background-color: rgb(0,0,0); 
-    background-color: rgba(0,0,0,0.6); 
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgb(0, 0, 0);
+    background-color: rgba(0, 0, 0, 0.6);
     backdrop-filter: blur(2px);
 }
 
 .modal-content {
     background-color: #fefefe;
-    margin: 10% auto; 
+    margin: 10% auto;
     padding: 20px;
     border: 1px solid #888;
-    width: 90%; 
+    width: 90%;
     max-width: 600px;
     border-radius: 8px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
     position: relative;
 }
 
@@ -887,4 +874,173 @@ textarea {
     line-height: 1.4;
     padding-left: 10px;
     border-left: 3px solid #ddd;
+}
+
+/* --- Brand Sidebar (Desktop Default) --- */
+.brand-sidebar {
+    display: flex;
+    flex-direction: column;
+    /* Image below Logo */
+    align-items: center;
+    gap: 15px;
+    width: 100%;
+}
+
+.logo-block,
+.project-image-block {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.company-logo {
+    width: 100%;
+    height: auto;
+    object-fit: cover;
+    /* Force cover to fill square if needed, or contain if user prefers full logo visible */
+    aspect-ratio: 1/1;
+    /* Force Square */
+    border-radius: 8px;
+    /* Rounded corners match project image */
+    display: block;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.company-logo:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+}
+
+.project-img-placeholder {
+    width: 100%;
+    height: auto;
+    object-fit: cover;
+    aspect-ratio: 1/1;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.project-img-placeholder:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+}
+
+/* --- Bulletin Layout (Flex) --- */
+.b-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 0px;
+    /* Reduced gap to minimum */
+    flex-wrap: wrap;
+    /* Allow wrapping for Flex Order strategy */
+}
+
+.b-date {
+    color: #2E7D32;
+    font-weight: bold;
+    font-size: 1.1em;
+    /* Increased size */
+}
+
+.b-meta-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    order: 1;
+    /* Always first */
+}
+
+.b-item-tag {
+    order: 2;
+    /* Desktop: Middle */
+    width: auto;
+    margin-top: 0;
+}
+
+.b-info-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    margin-left: auto;
+    /* Push to right */
+    order: 3;
+    /* Desktop: Rightmost */
+}
+
+.history-marker {
+    cursor: pointer;
+    font-size: 1.2em;
+}
+
+/* --- Mobile Adjustments (RWD) --- */
+@media (max-width: 900px) {
+
+    /* Top Banner Layout Change */
+    .top-dashboard-wrapper {
+        grid-template-columns: 1fr;
+        /* Stack everything */
+        gap: 15px;
+    }
+
+    /* Brand Sidebar: Logo + Image Centered Together */
+    .brand-sidebar {
+        flex-direction: row;
+        justify-content: center;
+        /* Center them */
+        align-items: center;
+        gap: 20px;
+        /* Consistent gap, not too wide */
+    }
+
+    .logo-block,
+    .project-image-block {
+        width: 120px;
+        /* Fixed equal width for balance */
+    }
+
+    .info-header {
+        flex-direction: column;
+    }
+
+    /* Date Col: Align Left on Mobile, but maintain row for content inside */
+    .date-col {
+        text-align: left;
+        margin-top: 5px;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    /* Override #statusMsg margin for mobile if needed */
+    #statusMsg {
+        margin-left: 10px !important;
+        margin-top: 0 !important;
+        display: inline-block;
+    }
+
+    /* Fix Bulletin Header for Mobile */
+    .b-header {
+        align-items: center;
+    }
+
+    .b-info-group {
+        order: 2;
+        /* Mobile: Second (Right on top row) */
+        margin-left: auto;
+        /* Push to right */
+    }
+
+    /* Force Big Tag to break line */
+    .b-item-tag {
+        width: 100% !important;
+        margin-top: 6px !important;
+        order: 3;
+        /* Mobile: Last (New Row) */
+        display: block;
+    }
 }
