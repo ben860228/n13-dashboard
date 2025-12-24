@@ -43,6 +43,8 @@
         try {
             // Init UI
             document.getElementById('dateInput').valueAsDate = new Date();
+
+            // Call the setup logic (now global)
             setupFormLogic();
 
             // Debug Info
@@ -52,21 +54,17 @@
             debugLog(debugMsg);
 
             // Simple Robust Check
-            // Note: GAS Template replaces <?= serverUid ?> with actual string
-            // If not replaced (local dev), it remains "<?= serverUid ?>"
             const hasServerUid = MAGIC_UID &&
                 MAGIC_UID.trim() !== "" &&
                 !MAGIC_UID.includes("serverUid");
 
             if (hasServerUid) {
                 updateStatus("🟢 讀取連結資料中...");
-                fetchConfig(MAGIC_UID); // Direct call, no verify needed for Magic Link
-                // Init LIFF silently just in case features are needed, but don't blocking-wait
+                fetchConfig(MAGIC_UID);
                 initLiffSilently();
             } else {
                 debugLog("Fallback to LIFF Login");
                 updateStatus("🟠 正在驗證身分...");
-                // Only try LIFF if Magic Link failed
                 tryLiffLogin();
             }
         } catch (e) {
@@ -75,6 +73,9 @@
             alert("初始化錯誤: " + e.message);
         }
     });
+
+    // --- GLOBAL FUNCTIONS START ---
+    // Moved out of DOMContentLoaded to ensure HTML onclick attributes work
 
     // 默默初始化 LIFF 且不執行登入 (只為了拿功能)
     function initLiffSilently() {
@@ -468,18 +469,79 @@
             const pid = document.getElementById('projectSelect').value;
             if (pid) fetchMyReports(pid);
         } else {
-            // Hides for BOTH 'new' and 'progress'
             editSelector.style.display = 'none';
 
             if (mode === 'new') {
                 submitBtn.innerText = '發佈';
+                submitBtn.className = 'btn btn-primary w-100'; // Reset Class
+                // Restore Handler
+                if (typeof handleBulletinSubmit === 'function') {
+                    submitBtn.onclick = handleBulletinSubmit;
+                }
+
                 document.getElementById('uuid').value = '';
                 document.getElementById('contentInput').value = '';
                 document.getElementById('dateInput').valueAsDate = new Date();
+
+                // Hide Delete
+                const delBtn = document.getElementById('deleteBtn');
+                if (delBtn) delBtn.style.display = 'none';
+
             } else if (mode === 'progress') {
                 // Progress mode uses its own submit button logic
             }
         }
+    }
+
+    // New Delete Logic (Modal Version)
+    function confirmDelete() {
+        // debugLog("Delete Requested");
+        const pid = document.getElementById('projectSelect').value;
+        const uid = document.getElementById('lineUserId').value;
+        const uuid = document.getElementById('uuid').value;
+
+        if (!pid || !uid || !uuid) {
+            alert("資料不完整，無法刪除 (Missing IDs)");
+            return;
+        }
+
+        // Show Bootstrap Modal
+        var myModal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
+        myModal.show();
+    }
+
+    function executeDelete() {
+        const pid = document.getElementById('projectSelect').value;
+        const uid = document.getElementById('lineUserId').value;
+        const uuid = document.getElementById('uuid').value;
+        const btn = document.getElementById('deleteBtn');
+
+        // Close Modal
+        const el = document.getElementById('deleteConfirmModal');
+        const modal = bootstrap.Modal.getInstance(el);
+        if (modal) modal.hide();
+
+        updateStatus("🔴 正在刪除...");
+        if (btn) btn.disabled = true;
+
+        google.script.run
+            .withSuccessHandler(res => {
+                const r = JSON.parse(res);
+                if (r.success) {
+                    // Replaced alert/reset with Success UI
+                    showSuccessUI("✅ 刪除成功！");
+                } else {
+                    alert("刪除失敗: " + r.message);
+                    if (btn) btn.disabled = false;
+                }
+                updateStatus("🟢 就緒");
+            })
+            .withFailureHandler(err => {
+                alert("系統錯誤: " + err.message);
+                if (btn) btn.disabled = false;
+                updateStatus("🔴 錯誤");
+            })
+            .deleteBulletin({ projectId: pid, lineUserId: uid, uuid: uuid });
     }
 
     function fetchMyReports(projectId) {
@@ -593,6 +655,13 @@
         // Trigger Category Logic
         const catSelect = document.getElementById('categorySelect');
         catSelect.dispatchEvent(new Event('change'));
+
+        // Show Delete Button
+        const delBtn = document.getElementById('deleteBtn');
+        if (delBtn) {
+            delBtn.style.display = 'block';
+            delBtn.onclick = confirmDelete; // Explicit binding
+        }
 
         setTimeout(() => {
             const tSelect = document.getElementById('taskSelect');
@@ -819,6 +888,144 @@
         }
     }
 
+    function showSuccessUI(msg) {
+        const formContainer = document.getElementById('formBlock');
+        const userInfoBlock = document.getElementById('userInfoBlock');
+        const statusBar = document.getElementById('status-bar');
+
+        // Hide Form Elements
+        formContainer.classList.add('d-none');
+        userInfoBlock.classList.add('d-none');
+        if (statusBar) statusBar.style.display = 'none';
+
+        // New: Hide Tabs and Edit Selector
+        const tabs = document.getElementById('modeTabs');
+        const editSelector = document.getElementById('edit-selector-container');
+        if (tabs) tabs.style.display = 'none';
+        if (editSelector) editSelector.style.display = 'none';
+
+        const successBlock = document.getElementById('successBlock');
+        successBlock.classList.remove('d-none');
+        document.getElementById('successMsg').innerText = msg || '處理成功';
+
+        // Close Logic
+        if (isLineClient) {
+            setTimeout(closeAppWindow, 3000);
+        }
+    }
+
+    function handleBulletinSubmit() {
+        const btn = document.getElementById('submitBtn');
+
+        debugLog("Btn Clicked. Mode=" + currentMode);
+
+        // 0. Auth Check
+        let uid = document.getElementById('lineUserId').value;
+        if (!uid) uid = g_currentUserId;
+
+        if (!uid) {
+            debugLog("Auth Fail: No UID found.");
+            alert("⚠️ 身分尚未驗證 (No UID)\\n請嘗試重新整理或重新開啟連結。");
+            return;
+        }
+        debugLog("Auth OK. UID: " + uid);
+
+        // 1. Content Check
+        const contentInput = document.getElementById('contentInput');
+        if (!contentInput.value.trim()) {
+            alert('請輸入內容');
+            contentInput.focus();
+            return;
+        }
+
+        // 2. Disable Button Immediately
+        btn.disabled = true;
+        btn.innerText = "處理中...";
+        updateStatus("🚀 正在送出請求...");
+
+        try {
+            let contentVal = document.getElementById('contentInput').value;
+            const taskVal = document.getElementById('taskSelect').value;
+
+            // NEW: Check Mode
+            const mode = currentMode;
+            const uuid = document.getElementById('uuid').value;
+            debugLog("Prepare Submit. Mode=" + mode + ", UUID=" + uuid);
+
+            const data = {
+                projectId: document.getElementById('projectSelect').value,
+                date: document.getElementById('dateInput').value,
+                type: document.getElementById('typeSelect').value,
+                category: document.getElementById('categorySelect').value,
+                item: taskVal || '',
+                content: contentVal,
+                lineUserId: uid
+            };
+
+            // Clean data
+            if (data.type !== '進度回報') {
+                data.category = '';
+                data.item = '';
+            }
+
+            if (typeof google === 'undefined' || !google.script) {
+                throw new Error("Google Script API not loaded.");
+            }
+
+            // Branch Logic for Edit vs New
+            if (mode === 'edit') {
+                if (!uuid) {
+                    alert("錯誤：沒有選擇修改的項目 (UUID Missing)");
+                    btn.disabled = false; btn.innerText = "確認修改";
+                    return;
+                }
+                data.uuid = uuid;
+
+                debugLog("Invoking updateBulletin...");
+                google.script.run
+                    .withSuccessHandler(resStr => {
+                        debugLog("Update Result: " + resStr);
+                        let res;
+                        try { res = JSON.parse(resStr); } catch (e) { res = { success: false, message: "JSON Error" }; }
+
+                        if (res.success) {
+                            showSuccessUI("修改成功");
+                        } else {
+                            alert("修改失敗: " + res.message);
+                            btn.disabled = false; btn.innerText = "確認修改";
+                        }
+                    })
+                    .withFailureHandler(handleFail)
+                    .updateBulletin(data);
+
+            } else {
+                // New Post
+                debugLog("Invoking submitBulletin...");
+                google.script.run
+                    .withSuccessHandler(res => {
+                        debugLog("Submit Success: " + res);
+                        showSuccessUI(res);
+                    })
+                    .withFailureHandler(handleFail)
+                    .submitBulletin(data);
+            }
+
+            function handleFail(err) {
+                console.error("Failure Handler:", err);
+                debugLog("Failure: " + err.message);
+                alert("失敗 (後端拒絕)：\\n" + (err.message || err));
+                btn.disabled = false; btn.innerText = (mode === 'edit') ? "確認修改" : "發佈";
+            }
+
+
+        } catch (ex) {
+            console.error("JS Error:", ex);
+            debugLog("Catch Error: " + ex.message);
+            alert("程序錯誤 (前端)：\\n" + ex.message);
+            btn.disabled = false; btn.innerText = (currentMode === 'edit') ? "確認修改" : "發佈";
+        }
+    }
+
     function setupFormLogic() {
         const typeSelect = document.getElementById('typeSelect');
 
@@ -852,143 +1059,14 @@
 
         // Bind Click to Button
         const btn = document.getElementById('submitBtn');
-        btn.onclick = function () {
-            debugLog("Btn Clicked. Mode=" + currentMode);
-
-            // 0. Auth Check
-            // Try from DOM first, then Global
-            let uid = document.getElementById('lineUserId').value;
-            if (!uid) uid = g_currentUserId;
-
-            if (!uid) {
-                debugLog("Auth Fail: No UID found.");
-                alert("⚠️ 身分尚未驗證 (No UID)\n請嘗試重新整理或重新開啟連結。");
-                return;
-            }
-            debugLog("Auth OK. UID: " + uid);
-
-            // 1. Content Check
-            const contentInput = document.getElementById('contentInput');
-            if (!contentInput.value.trim()) {
-                alert('請輸入內容');
-                contentInput.focus();
-                return;
-            }
-
-            // 2. Disable Button Immediately
-            btn.disabled = true;
-            btn.innerText = "處理中...";
-            updateStatus("🚀 正在送出請求...");
-
-            try {
-                let contentVal = document.getElementById('contentInput').value;
-                const taskVal = document.getElementById('taskSelect').value;
-
-                // NEW: Check Mode
-                const mode = currentMode;
-                const uuid = document.getElementById('uuid').value;
-                debugLog("Prepare Submit. Mode=" + mode + ", UUID=" + uuid);
-
-                const data = {
-                    projectId: document.getElementById('projectSelect').value,
-                    date: document.getElementById('dateInput').value,
-                    type: document.getElementById('typeSelect').value,
-                    category: document.getElementById('categorySelect').value,
-                    item: taskVal || '',
-                    content: contentVal,
-                    lineUserId: uid
-                };
-
-                // Clean data
-                if (data.type !== '進度回報') {
-                    data.category = '';
-                    data.item = '';
-                }
-
-                if (typeof google === 'undefined' || !google.script) {
-                    throw new Error("Google Script API not loaded.");
-                }
-
-                // Branch Logic for Edit vs New
-                if (mode === 'edit') {
-                    if (!uuid) {
-                        alert("錯誤：沒有選擇修改的項目 (UUID Missing)");
-                        btn.disabled = false; btn.innerText = "確認修改";
-                        return;
-                    }
-                    data.uuid = uuid;
-
-                    debugLog("Invoking updateBulletin...");
-                    google.script.run
-                        .withSuccessHandler(resStr => {
-                            debugLog("Update Result: " + resStr);
-                            let res;
-                            try { res = JSON.parse(resStr); } catch (e) { res = { success: false, message: "JSON Error" }; }
-
-                            if (res.success) {
-                                showSuccessUI("修改成功");
-                            } else {
-                                alert("修改失敗: " + res.message);
-                                btn.disabled = false; btn.innerText = "確認修改";
-                            }
-                        })
-                        .withFailureHandler(handleFail)
-                        .updateBulletin(data);
-
-                } else {
-                    // New Post
-                    debugLog("Invoking submitBulletin...");
-                    google.script.run
-                        .withSuccessHandler(res => {
-                            debugLog("Submit Success: " + res);
-                            showSuccessUI(res);
-                        })
-                        .withFailureHandler(handleFail)
-                        .submitBulletin(data);
-                }
-
-                function handleFail(err) {
-                    console.error("Failure Handler:", err);
-                    debugLog("Failure: " + err.message);
-                    alert("失敗 (後端拒絕)：\n" + (err.message || err));
-                    btn.disabled = false; btn.innerText = (mode === 'edit') ? "確認修改" : "發佈";
-                }
-
-                function showSuccessUI(msg) {
-                    const formContainer = document.getElementById('formBlock');
-                    const userInfoBlock = document.getElementById('userInfoBlock');
-                    const statusBar = document.getElementById('status-bar');
-
-                    // Hide Form Elements
-                    formContainer.classList.add('d-none');
-                    userInfoBlock.classList.add('d-none');
-                    if (statusBar) statusBar.style.display = 'none';
-
-                    // New: Hide Tabs and Edit Selector
-                    const tabs = document.getElementById('modeTabs');
-                    const editSelector = document.getElementById('edit-selector-container');
-                    if (tabs) tabs.style.display = 'none';
-                    if (editSelector) editSelector.style.display = 'none';
-
-                    const successBlock = document.getElementById('successBlock');
-                    successBlock.classList.remove('d-none');
-                    document.getElementById('successMsg').innerText = msg || '處理成功';
-
-                    // Close Logic
-                    if (isLineClient) {
-                        setTimeout(closeAppWindow, 3000);
-                    }
-                }
-
-            } catch (ex) {
-                console.error("JS Error:", ex);
-                debugLog("Catch Error: " + ex.message);
-                alert("程序錯誤 (前端)：\n" + ex.message);
-                btn.disabled = false; btn.innerText = (currentMode === 'edit') ? "確認修改" : "發佈";
-            }
-        };
+        btn.onclick = handleBulletinSubmit;
 
         // Init state
         newTypeSelect.dispatchEvent(new Event('change'));
     }
+
+    // Explicit Global Exposure
+    window.handleBulletinSubmit = handleBulletinSubmit;
+    window.confirmDelete = confirmDelete;
+    window.executeDelete = executeDelete;
 </script>

@@ -14,6 +14,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <script
         src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
     <link rel="stylesheet" href="css/style.css">
 
@@ -23,7 +25,8 @@
             // 請填入花蓮玉里專案的 CSV 連結
             tasksUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTl_MAoHjR5PLhrna8UeGwObtSAnLd-viqOCPQwZFKxWmaobUxE_mNGDFhSjrjXhAhBNWbY5qevumQD/pub?gid=0&single=true&output=csv",
             infoUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTl_MAoHjR5PLhrna8UeGwObtSAnLd-viqOCPQwZFKxWmaobUxE_mNGDFhSjrjXhAhBNWbY5qevumQD/pub?gid=1735843667&single=true&output=csv",
-            bulletinUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTl_MAoHjR5PLhrna8UeGwObtSAnLd-viqOCPQwZFKxWmaobUxE_mNGDFhSjrjXhAhBNWbY5qevumQD/pub?gid=479280600&single=true&output=csv"
+            bulletinUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTl_MAoHjR5PLhrna8UeGwObtSAnLd-viqOCPQwZFKxWmaobUxE_mNGDFhSjrjXhAhBNWbY5qevumQD/pub?gid=479280600&single=true&output=csv",
+            bulletinHistoryUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQiyY2STxHEAcJIa_wBeLHRYpGj82dozn-1tCo_ZhltPo-CABMaWOD88K7LLJnXTtW_3IV-k2qZq8HV/pub?gid=704936196&single=true&output=csv"
         };
     </script>
 </head>
@@ -152,7 +155,7 @@
         </div>
 
         <div class="chart-section">
-            <h3 id="ganttHeader">專案整體進度甘特圖</h3>
+            <h3 id="ganttHeader" class="mb-0">專案整體進度甘特圖</h3>
 
             <div class="gantt-legend">
                 <span class="legend-item"><span class="legend-color"
@@ -172,6 +175,7 @@
 
         <div class="footer-controls">
             <button class="simple-btn" onclick="loadFromGoogle()">🔄 重新整理</button>
+            <button class="simple-btn" onclick="exportGanttToPDF()">📄 匯出報表 (PDF)</button>
             <button class="link-btn" onclick="toggleManual()">手動輸入 CSV</button>
         </div>
         <div id="manualSection">
@@ -180,6 +184,16 @@
         </div>
     </div>
 
+    <!-- History Modal -->
+    <div id="historyModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeHistoryModal()">&times;</span>
+            <h3>📜 修改歷史紀錄</h3>
+            <div id="historyList" class="history-list"></div>
+        </div>
+    </div>
+
+    <script src="js/pdfExport.js"></script>
     <script type="module" src="js/main.js"></script>
 </body>
 

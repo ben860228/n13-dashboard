@@ -346,7 +346,12 @@
                     <button type="button" id="submitBtn" class="btn btn-primary btn-lg fw-bold shadow-sm">
                         發佈
                     </button>
-                    <!-- Button Changed to Primary (Blue) for Prod -->
+                    <!-- Delete Button for Edit Mode -->
+                    <!-- 刪除按鈕 (預設隱藏) -->
+                    <button type="button" id="deleteBtn" class="btn btn-outline-danger w-100 mt-2" style="display:none;"
+                        onclick="confirmDelete()">
+                        🗑️ 刪除此回報
+                    </button>
                 </div>
 
                 <!-- DEBUG CONSOLE (Hidden by default) -->
@@ -356,22 +361,42 @@
                 </div>
             </div>
         </div>
-    </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+        <!-- Confirm Delete Modal (Bootstrap) - Moved out to Body Level -->
+        <div class="modal" id="deleteConfirmModal" tabindex="-1" aria-hidden="true" style="z-index: 1055;">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content bg-dark border-secondary text-white">
+                    <div class="modal-header border-secondary">
+                        <h5 class="modal-title text-danger">⚠️ 刪除確認</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                            aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        確定要刪除此回報嗎？<br>
+                        <span class="text-secondary small">(此動作無法復原)</span>
+                    </div>
+                    <div class="modal-footer border-secondary">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                        <button type="button" class="btn btn-danger" onclick="executeDelete()">確認刪除</button>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-    <!-- Global Config (Must be here for server-side injection) -->
-    <script>
-        const LIFF_ID = "2008698380-xwXH3g1t";
-        const MAGIC_UID = "<?= serverUid ?>";
-        const TASKS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQiyY2STxHEAcJIa_wBeLHRYpGj82dozn-1tCo_ZhltPo-CABMaWOD88K7LLJnXTtW_3IV-k2qZq8HV/pub?gid=0&single=true&output=csv";
-    </script>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+        <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
-    <!-- Load JS -->
-    <?!= include('line_form_js'); ?>
-    <?!= include('line_form_progress_js'); ?>
+        <!-- Global Config (Must be here for server-side injection) -->
+        <script>
+            const LIFF_ID = "2008698380-xwXH3g1t";
+            const MAGIC_UID = "<?= serverUid ?>";
+            const TASKS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQiyY2STxHEAcJIa_wBeLHRYpGj82dozn-1tCo_ZhltPo-CABMaWOD88K7LLJnXTtW_3IV-k2qZq8HV/pub?gid=0&single=true&output=csv";
+        </script>
+
+        <!-- Load JS -->
+        <?!= include('line_form_js'); ?>
+        <?!= include('line_form_progress_js'); ?>
 
 </body>
 

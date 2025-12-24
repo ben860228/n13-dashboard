@@ -14,6 +14,8 @@ const DEFAULT_BULLETIN_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ
 const TASKS_CSV_URL = config.tasksUrl || DEFAULT_TASKS_URL;
 const PROJECT_INFO_CSV_URL = config.infoUrl || DEFAULT_INFO_URL;
 const BULLETIN_CSV_URL = config.bulletinUrl || DEFAULT_BULLETIN_URL;
+// ⚠️ IMPORTANT: User must provide this URL!
+const BULLETIN_HISTORY_URL = config.bulletinHistoryUrl || "YOUR_HISTORY_CSV_URL_HERE";
 
 const today = new Date();
 today.setHours(0, 0, 0, 0);
@@ -91,13 +93,21 @@ window.loadFromGoogle = async function () {
         if (BULLETIN_CSV_URL) {
             try {
                 const bullRes = await fetch(BULLETIN_CSV_URL + cacheBuster);
+
+                let histCsv = null;
+                if (BULLETIN_HISTORY_URL) {
+                    try {
+                        const histRes = await fetch(BULLETIN_HISTORY_URL + cacheBuster);
+                        if (histRes.ok) histCsv = await histRes.text();
+                    } catch (e) { console.warn("History fetch fail"); }
+                }
+
                 if (bullRes.ok) {
                     const bullCsv = await bullRes.text();
-                    processBulletinData(bullCsv);
+                    processBulletinData(bullCsv, histCsv);
                 }
             } catch (e) {
                 console.warn("Bulletin read fail:", e);
-                // Don't block main dashboard if bulletin fails
                 document.getElementById('bulletin-list').innerHTML = "<div style='text-align:center; padding:10px; color:#e74c3c;'>讀取失敗</div>";
             }
         }
@@ -397,6 +407,16 @@ function processData(taskCsv, infoCsv) {
     if (sLabels.length > 0) renderSCurve(sLabels, sPlanned, sActual, today);
     renderGantt(ganttLabels, ganttPlannedData, finalActualData, finalActualColors, today, ganttTaskStyles);
 
+    // Cache Data for PDF Export
+    window.ganttDataCache = {
+        labels: ganttLabels,
+        planned: ganttPlannedData,
+        actual: finalActualData,
+        colors: finalActualColors,
+        today: today,
+        styles: ganttTaskStyles
+    };
+
     attachTaskCardEvents();
 }
 
@@ -511,16 +531,37 @@ function parseGoogleFormsTimestamp(ts) {
     return new Date(0);
 }
 
-function processBulletinData(csvText) {
-    if (!csvText) return;
-    const results = Papa.parse(csvText, { header: true, skipEmptyLines: true }).data;
+// Global History Map
+let g_historyMap = {};
 
+function processBulletinData(csvText, historyCsvText) {
+    if (!csvText) return;
+
+    // Parse History First
+    g_historyMap = {};
+    if (historyCsvText) {
+        try {
+            const hRows = Papa.parse(historyCsvText, { header: true, skipEmptyLines: true }).data;
+            if (hRows.length > 0) {
+                console.log("DEBUG: History CSV Headers sample:", Object.keys(hRows[0]));
+            }
+            hRows.forEach(row => {
+                // Bulletin History Cols: Ref_UUID, ArchivedAt, Original_Timestamp, Date, Author, Type, Category, Item, Content
+                // CSV Headers might vary, assume similar to created in GAS
+                const refUuid = row['Ref_UUID'] || row['Ref_uuid'] || row['uuid'] || row['UUID'] || row['RefUUID'];
+                if (refUuid) {
+                    if (!g_historyMap[refUuid]) g_historyMap[refUuid] = [];
+                    g_historyMap[refUuid].push(row);
+                }
+            });
+            console.log("DEBUG: History Map Keys count:", Object.keys(g_historyMap).length);
+        } catch (e) { console.error("History Parse Error", e); }
+    }
+
+    const results = Papa.parse(csvText, { header: true, skipEmptyLines: true }).data;
     const validItems = results.filter(r => r['Content'] || r['內容']);
 
     // Sort descending by Timestamp
-    // Sort Logic: 
-    // 1. Date (Descending) - Prioritize the "Event Date"
-    // 2. Timestamp (Descending) - Then by "Submission Time"
     validItems.sort((a, b) => {
         // 1. Primary: Date
         const dateAStr = a['Date'] || a['日期'] || '';
@@ -560,17 +601,10 @@ function renderBulletinList(items) {
         const author = item['Author'] || item['作者'] || 'Unknown';
         const type = item['Type'] || item['類型'] || '一般';
         const itemVal = item['Item'] || item['工項'] || item['Item (Work Item)'] || '';
-        // Fix: Get Category correctly
         const category = item['Category'] || item['分類'] || '';
 
-        // ...
-
         let content = item['Content'] || item['內容'] || '';
-
-        // Skip if empty content
         if (!content.trim()) return;
-
-        // Content plain (Revert prepend)
         content = content.replace(/\n/g, '<br>');
 
         const div = document.createElement('div');
@@ -579,22 +613,16 @@ function renderBulletinList(items) {
         const isBoss = (type === '主管訊息' || type === 'Boss');
         const typeClass = isBoss ? 'b-type boss' : 'b-type';
 
-        // Work Item Tag HTML with Colors
+        // Work Item Tag HTML
         let itemTagHtml = '';
         if (itemVal && itemVal.trim()) {
-            let colorClass = 'tag-gray'; // Default
-
-            // Intelligent Keyword Detection if Category is missing or generic
+            let colorClass = 'tag-gray';
             const combinedText = (category + itemVal).toLowerCase();
-
             if (combinedText.includes('行政') || combinedText.includes('admin')) colorClass = 'tag-admin';
             else if (combinedText.includes('設計') || combinedText.includes('design')) colorClass = 'tag-design';
             else if (combinedText.includes('施工') || combinedText.includes('const') || combinedText.includes('土木') || combinedText.includes('機電')) colorClass = 'tag-const';
 
-            // Also check specific user request keywords if needed
-            if (itemVal.includes('排水箱涵')) colorClass = 'tag-design'; // Example fix based on user screenshot
-
-            // Override if explicit category exists (Precedence)
+            if (itemVal.includes('排水箱涵')) colorClass = 'tag-design';
             if (category.includes('行政')) colorClass = 'tag-admin';
             if (category.includes('設計')) colorClass = 'tag-design';
             if (category.includes('施工')) colorClass = 'tag-const';
@@ -602,24 +630,102 @@ function renderBulletinList(items) {
             itemTagHtml = `<span class="b-item-tag ${colorClass}">${itemVal}</span>`;
         }
 
-        /* 
-           Layout Logic:
-           Desktop: Date | Type | Tag ...... | Author
-           Mobile: 
-             Row 1: Date | Type ....... Author
-             Row 2: Tag
-        */
+        // Histroy Emoji Logic
+        // Extract UUID - Try multiple common casing
+        const uuid = item['UUID'] || item['uuid'] || item['Uuid'] || '';
+
+        // DEBUG: Check why history lookup fails
+        // if (item['Content'] && item['Content'].includes('測試新功能')) {
+        //     console.log("DEBUG: Test Item Found. UUID=", uuid, "HistoryMap Has It?", !!g_historyMap[uuid]);
+        //     if (!g_historyMap[uuid]) console.log("DEBUG: History Map Keys:", Object.keys(g_historyMap));
+        // }
+        let historyHtml = '';
+
+        // Debug Log only if we have history but no match found yet (optional)
+        // if (uuid && Object.keys(g_historyMap).length > 0 && !g_historyMap[uuid]) {
+        //    console.warn("Item UUID:", uuid, "Not in HistoryMap keys:", Object.keys(g_historyMap));
+        // }
+
+        if (uuid && g_historyMap[uuid] && g_historyMap[uuid].length > 0) {
+            historyHtml = `<span class="history-marker" onclick="openHistory('${uuid}')" title="點擊檢視修改紀錄 (${g_historyMap[uuid].length} 筆)">📝</span>`;
+        }
 
         div.innerHTML = `
-            <div class="b-header">
-                <span class="b-date">${dateStr}</span>
-                <span class="${typeClass}">${type}</span>
-                ${itemTagHtml}
-                <span class="b-author">${author}</span>
+            <div class="b-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <div class="d-flex align-items-center" style="gap: 5px;">
+                    <span class="b-date">${dateStr}</span>
+                    <span class="${typeClass}">${type}</span>
+                    ${itemTagHtml}
+                </div>
+                
+                <div class="d-flex align-items-center" style="gap: 5px;">
+                    ${historyHtml}
+                    <span class="b-author">${author}</span>
+                </div>
             </div>
             <div class="b-content">${content}</div>
         `;
         container.appendChild(div);
     });
 }
+
+
+// --- Global Functions (PDF & History Modal) ---
+
+// exportGanttToPDF has been moved to js/pdfExport.js
+
+window.openHistory = function (uuid) {
+    const historyData = g_historyMap[uuid];
+    if (!historyData) return;
+
+    const list = document.getElementById('historyList');
+    list.innerHTML = "";
+
+    // Sort by ArchivedAt Desc
+    historyData.sort((a, b) => {
+        // Safe Parse?
+        return new Date(b['ArchivedAt'] || b['ArchivedAt']) - new Date(a['ArchivedAt'] || a['ArchivedAt']);
+    });
+
+    historyData.forEach(h => {
+        const div = document.createElement('div');
+        div.className = 'history-item';
+
+        // Fix: Explicitly check multiple keys for content
+        let content = h['Content'] || h['content'] || h['內容'] || h['Origin_content'] || '';
+        content = content.replace(/\n/g, '<br>');
+
+        // Correct Keys based on User Debug
+        const archiveTime = h['Timestamp'] || h['ArchivedAt'] || '???';
+        const typeVal = h['Type'] || h['type'] || h['類型'] || '';
+
+        // Display Construction (Simplified Config, removed '存檔')
+        let timeDisplay = `${archiveTime}`;
+
+        div.innerHTML = `
+            <div class="h-meta">
+                <span class="h-time">${timeDisplay}</span>
+                <span class="h-type">${typeVal}</span>
+            </div>
+            <div class="h-content">
+                ${content || '(無內容)'}
+            </div>
+        `;
+        list.appendChild(div);
+    });
+
+    document.getElementById('historyModal').style.display = 'block';
+};
+
+window.closeHistoryModal = function () {
+    document.getElementById('historyModal').style.display = 'none';
+};
+
+// Close modal when clicking outside
+window.onclick = function (event) {
+    const modal = document.getElementById('historyModal');
+    if (event.target == modal) {
+        modal.style.display = "none";
+    }
+};
 

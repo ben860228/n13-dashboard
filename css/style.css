@@ -798,3 +798,93 @@ textarea {
         display: none;
     }
 }
+
+/* --- History Modal Styles --- */
+.history-marker {
+    cursor: pointer;
+    font-size: 1.2em;
+    margin-left: 8px;
+    vertical-align: middle;
+    transition: transform 0.2s;
+}
+
+.history-marker:hover {
+    transform: scale(1.2);
+}
+
+.modal {
+    display: none; 
+    position: fixed; 
+    z-index: 1000; 
+    left: 0;
+    top: 0;
+    width: 100%; 
+    height: 100%; 
+    overflow: auto; 
+    background-color: rgb(0,0,0); 
+    background-color: rgba(0,0,0,0.6); 
+    backdrop-filter: blur(2px);
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 10% auto; 
+    padding: 20px;
+    border: 1px solid #888;
+    width: 90%; 
+    max-width: 600px;
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    position: relative;
+}
+
+.close-modal {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close-modal:hover,
+.close-modal:focus {
+    color: black;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.history-list {
+    max-height: 60vh;
+    overflow-y: auto;
+    margin-top: 15px;
+}
+
+.history-item {
+    border-bottom: 1px solid #eee;
+    padding: 10px 0;
+}
+
+.history-item:last-child {
+    border-bottom: none;
+}
+
+.h-meta {
+    font-size: 0.85em;
+    color: #999;
+    margin-bottom: 5px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.h-time {
+    color: #2c3e50;
+    font-weight: bold;
+}
+
+.h-content {
+    color: #555;
+    font-size: 0.95em;
+    line-height: 1.4;
+    padding-left: 10px;
+    border-left: 3px solid #ddd;
+}
