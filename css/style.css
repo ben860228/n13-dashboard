@@ -1218,7 +1218,7 @@ textarea {
 }
 
 .history-icon:hover {
-    ```css object-fit: cover;
+    object-fit: cover;
     /* Force cover to fill square if needed, or contain if user prefers full logo visible */
     aspect-ratio: 1/1;
     /* Force Square */
@@ -1417,5 +1417,3 @@ textarea {
     background-color: rgba(0, 0, 0, 0.05);
     border-radius: 4px;
 }
-
-```
