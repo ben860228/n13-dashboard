@@ -132,7 +132,7 @@ function processData(taskCsv, infoCsv) {
 
     let projectInfo = {
         code: "專案代號", name: "專案名稱", government: "--", location: "--",
-        designer: "--", contractor: "--", boss: "--", sponsor: "--"
+        designer: "--", contractor: "--", boss: "--", civil: "--", process: "--", mep: "--", type: "--"
     };
 
     if (infoCsv) {
@@ -148,7 +148,11 @@ function processData(taskCsv, infoCsv) {
                 if (key === 'Designer') projectInfo.designer = val;
                 if (key === 'Contractor') projectInfo.contractor = val;
                 if (key === 'ProjectBoss') projectInfo.boss = val;
-                if (key === 'ProjectSponsor') projectInfo.sponsor = val;
+                // if (key === 'ProjectSponsor') projectInfo.sponsor = val; // Removed legacy sponsor
+                if (key === 'CivilSponsor') projectInfo.civil = val;
+                if (key === 'ProcessSponsor') projectInfo.process = val;
+                if (key === 'MEPSponsor') projectInfo.mep = val;
+                if (key === 'ProjectType') projectInfo.type = val;
             }
         });
     }
@@ -160,7 +164,12 @@ function processData(taskCsv, infoCsv) {
     setTxt('ui-designer', projectInfo.designer);
     setTxt('ui-contractor', projectInfo.contractor);
     setTxt('ui-boss', projectInfo.boss);
-    setTxt('ui-sponsor', projectInfo.sponsor);
+    // setTxt('ui-sponsor', projectInfo.sponsor); // Removed legacy ID
+
+    setTxt('ui-civil', projectInfo.civil);
+    setTxt('ui-process', projectInfo.process);
+    setTxt('ui-mep', projectInfo.mep);
+    setTxt('ui-type', projectInfo.type);
     setTxt('sCurveHeader', `${projectInfo.name} S-Curve`);
     setTxt('ganttHeader', `${projectInfo.name} 專案整體進度甘特圖`);
 

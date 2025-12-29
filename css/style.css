@@ -27,9 +27,9 @@ body {
 /* --- 上方看板 (Top Banner) --- */
 .top-dashboard-wrapper {
     display: grid;
-    /* LOGO 130px | 資訊 auto | 數據 200px */
-    grid-template-columns: 130px 1fr 200px;
-    /* Reduced from 160px to 130px */
+    /* LOGO 138px | 資訊 auto | 數據 200px */
+    grid-template-columns: 138px 1fr 200px;
+    /* Compressed to 138px to match minimized height */
     gap: 15px;
     margin-bottom: 20px;
     align-items: stretch;
@@ -43,8 +43,12 @@ body {
 .info-block {
     display: flex;
     flex-direction: column;
-    padding: 15px 25px;
-    justify-content: space-between;
+    padding: 8px 20px;
+    /* Tighter padding */
+    justify-content: center;
+    /* Center content vertically */
+    gap: 5px;
+    /* Minimal internal gap */
 }
 
 /* Removed broken global layout rules to restore original state */
@@ -54,9 +58,11 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: 15px;
+    margin-bottom: 8px;
+    /* Compressed margin */
     border-bottom: 1px solid #eee;
-    padding-bottom: 10px;
+    padding-bottom: 8px;
+    /* Compressed padding */
     flex-wrap: wrap;
 }
 
@@ -79,47 +85,79 @@ body {
     font-size: 0.9em;
 }
 
-/* 關鍵人物 (長名修正) */
+/* Key People Row (Green Box) - Redesign */
 .key-people-row {
-    background-color: #F1F8E9;
-    border-radius: 6px;
-    padding: 10px 20px;
-    display: flex;
-    align-items: center;
-    margin-bottom: 15px;
-    border: 1px solid #C5E1A5;
-    flex-wrap: wrap;
-    /* 允許換行 */
+    background: #f4fcf6;
+    /* Very light green */
+    border: 1px solid #d5f5e3;
+    border-radius: 8px;
+    padding: 8px 12px;
+    /* Compressed padding */
+    margin-bottom: 10px;
+    /* Compressed margin */
+
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    /* Desktop: 4 columns */
+    gap: 10px;
+    /* Distinct separation */
+    align-items: flex-start;
+    /* Align tops */
 }
 
 .kp-item {
     display: flex;
-    align-items: baseline;
-    gap: 10px;
-    /* ★修正：允許文字換行，防止爆版★ */
-    flex-wrap: wrap;
-    word-break: break-all;
+    flex-direction: column;
+    /* Label on top for readability */
+    align-items: flex-start;
+    gap: 4px;
+    min-width: 0;
 }
 
 .kp-label {
-    font-size: 0.85em;
-    color: #558B2F;
+    font-size: 0.8em;
+    color: #66bb6a;
+    /* Softer green */
     font-weight: bold;
-    min-width: 60px;
+    margin-bottom: 0;
     white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .kp-value {
-    font-size: 1.1em;
-    color: #1B5E20;
-    font-weight: bold;
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 0.95em;
+    /* Readable size */
+    line-height: 1.4;
+    word-break: break-word;
+    /* Break at spaces/punctuation */
+    overflow-wrap: break-word;
+    width: 100%;
 }
 
+/* Force Mobile Styles */
+@media (max-width: 900px) {
+    .key-people-row {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        /* Single column for readability */
+        gap: 12px;
+        padding: 10px;
+    }
+
+    .kp-value {
+        font-size: 1.0em;
+        /* Larger font for mobile readability */
+        word-break: break-word;
+        /* Ensure wrapping */
+    }
+}
+
+/* Divider removed */
 .kp-divider {
-    width: 1px;
-    height: 15px;
-    background: #a5d6a7;
-    margin: 0 25px;
+    display: none;
 }
 
 /* 一般資訊網格 */
@@ -696,7 +734,8 @@ textarea {
     }
 
     .brand-sidebar {
-        width: 180px;
+        width: 100%;
+        /* Mobile: Full width row */
         flex-shrink: 0;
         display: flex;
         flex-direction: column;
@@ -745,9 +784,10 @@ textarea {
     }
 
     /* 修正關鍵人物過長 */
+    /* 修正關鍵人物過長 */
     .key-people-row {
-        flex-direction: column;
-        align-items: flex-start;
+        /* Mobile: 2x2 Grid for compact view */
+        grid-template-columns: 1fr 1fr;
         gap: 8px;
     }
 
@@ -1178,7 +1218,204 @@ textarea {
 }
 
 .history-icon:hover {
+    ```css object-fit: cover;
+    /* Force cover to fill square if needed, or contain if user prefers full logo visible */
+    aspect-ratio: 1/1;
+    /* Force Square */
+    border-radius: 8px;
+    /* Rounded corners match project image */
+    display: block;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.company-logo:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+}
+
+.project-img-placeholder {
+    width: 100%;
+    height: auto;
+    object-fit: cover;
+    aspect-ratio: 1/1;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.project-img-placeholder:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+}
+
+/* --- Bulletin Layout (Flex) --- */
+.b-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 0px;
+    /* Reduced gap to minimum */
+    flex-wrap: wrap;
+    /* Allow wrapping for Flex Order strategy */
+}
+
+.b-date {
+    color: #2E7D32;
+    font-weight: bold;
+    font-size: 1.1em;
+    /* Increased size */
+}
+
+.b-meta-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    order: 1;
+    /* Always first */
+}
+
+.b-tag-group {
+    order: 2;
+    /* Desktop: Middle */
+    display: inline-flex;
+    /* Use flex to align tag and icon */
+    align-items: center;
+    margin-top: 0;
+}
+
+.b-item-tag {
+    /* order removed, controlled by parent group */
+    width: auto;
+}
+
+.b-info-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    margin-left: auto;
+    /* Push to right */
+    order: 3;
+    /* Desktop: Rightmost */
+}
+
+.history-marker {
+    cursor: pointer;
+    font-size: 1.2em;
+}
+
+/* --- Mobile Adjustments (RWD) --- */
+@media (max-width: 900px) {
+
+    /* Top Banner Layout Change */
+    .top-dashboard-wrapper {
+        grid-template-columns: 1fr;
+        /* Stack everything */
+        gap: 15px;
+    }
+
+    /* Brand Sidebar: Logo + Image Centered Together */
+    .brand-sidebar {
+        flex-direction: row;
+        justify-content: center;
+        /* Center them */
+        align-items: center;
+        gap: 20px;
+        /* Consistent gap, not too wide */
+    }
+
+    .logo-block,
+    .project-image-block {
+        width: 120px;
+        /* Fixed equal width for balance */
+    }
+
+    .info-header {
+        flex-direction: column;
+    }
+
+    /* Date Col: Align Left on Mobile, but maintain row for content inside */
+    .date-col {
+        text-align: left;
+        margin-top: 5px;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    /* Override #statusMsg margin for mobile if needed */
+    #statusMsg {
+        margin-left: 10px !important;
+        margin-top: 0 !important;
+        display: inline-block;
+    }
+
+    /* Fix Bulletin Header for Mobile */
+    .b-header {
+        align-items: center;
+    }
+
+    .b-info-group {
+        order: 2;
+        /* Mobile: Second (Right on top row) */
+        margin-left: auto;
+        /* Push to right */
+    }
+
+    /* Force Big Tag to break line */
+    /* Force Group to break line */
+    /* Force Group to break line */
+    .b-tag-group {
+        width: 100% !important;
+        margin-top: 2px !important;
+        /* Reduced gap */
+        order: 3;
+        /* Mobile: Last (New Row) */
+        display: flex;
+        align-items: center;
+        /* Vertically align icon and text */
+        justify-content: space-between;
+        /* Tag takes left, Icon takes right */
+    }
+
+    .b-item-tag {
+        order: 1;
+        /* Ensure Tag is first */
+        flex: 1 1 auto;
+        /* Grow to fill space */
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        /* max-width removed, let flex handle it */
+        display: block;
+        margin-right: 5px;
+        /* Tiny gap before icon */
+    }
+}
+
+/* History Icon (Menu) */
+.history-icon {
+    font-size: 1.4em;
+    cursor: pointer;
+    margin-left: 8px;
+    order: 2;
+    /* Ensure Icon is second */
+    color: #95a5a6;
+    /* vertical-align: sub; -> handled by flex align-items center now */
+    font-weight: bold;
+    transition: color 0.2s;
+    display: inline-block;
+    padding: 0 4px;
+    flex-shrink: 0;
+    /* Never shrink */
+}
+
+.history-icon:hover {
     color: #2c3e50;
     background-color: rgba(0, 0, 0, 0.05);
     border-radius: 4px;
 }
+
+```
